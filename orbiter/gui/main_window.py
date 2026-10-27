@@ -17,7 +17,7 @@ from PyQt6.QtGui import QIcon, QAction
 
 from orbiter.config import ConfigManager, IPC_SOCKET
 from orbiter.device import DEVICE_MODELS
-from orbiter.i18n import tr
+from orbiter.i18n import tr, register_listener
 from orbiter.gui.style import DARK_THEME, make_combo_opaque
 from orbiter.gui.icons import get_icon
 from orbiter.gui.widgets.button_editor import ButtonEditorWidget
@@ -27,6 +27,8 @@ from orbiter.gui.widgets.auto_rules import AutoRulesWidget
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 ICON_PATH = PROJECT_ROOT / "data" / "icons" / "orbiter.svg"
+# FHS fallback when installed as package
+_FHS_ICON = Path("/usr/share/icons/hicolor/scalable/apps/orbiter.svg")
 
 class MainWindow(QMainWindow):
     def __init__(self, start_minimized=False):
@@ -36,15 +38,18 @@ class MainWindow(QMainWindow):
         self.resize(840, 640)
         self.setStyleSheet(DARK_THEME)
 
-        self.app_icon = QIcon(str(ICON_PATH))
+        icon_path = ICON_PATH if ICON_PATH.is_file() else _FHS_ICON
+        self.app_icon = QIcon(str(icon_path))
         self.setWindowIcon(self.app_icon)
 
         self.is_2d = True
         self.connected_device = None
         self._updating_profiles = False
+        self._retranslating = False
 
         self.init_ui()
         self.init_tray()
+        register_listener(self._on_language_changed)
 
         self.check_status_timer = QTimer(self)
         self.check_status_timer.timeout.connect(self.update_daemon_status)
@@ -53,6 +58,70 @@ class MainWindow(QMainWindow):
 
         if not start_minimized:
             self.show()
+
+    def _on_language_changed(self, _lang):
+        if self._retranslating:
+            return
+        self.retranslate_ui()
+
+    def retranslate_ui(self):
+        self._retranslating = True
+        try:
+            self.setWindowTitle(tr("app.title"))
+            self.subtitle_lbl.setText(tr("app.subtitle"))
+            self.model_combo.setToolTip(tr("model.tooltip"))
+            # Modell-Combo Labels neu, Data behalten
+            cur = self.model_combo.currentData()
+            self.model_combo.blockSignals(True)
+            self.model_combo.clear()
+            for key, data in [
+                ("model.auto", "auto"),
+                ("model.compact", "compact"),
+                ("model.explorer", "explorer"),
+                ("model.pro", "pro"),
+                ("model.enterprise", "enterprise"),
+            ]:
+                self.model_combo.addItem(tr(key), data)
+            idx = self.model_combo.findData(cur or "auto")
+            if idx >= 0:
+                self.model_combo.setCurrentIndex(idx)
+            self.model_combo.blockSignals(False)
+
+            self.prof_lbl.setText(tr("profile.label"))
+            self.new_prof_btn.setText(tr("profile.new"))
+            self.copy_prof_btn.setText(tr("profile.duplicate"))
+            self.rename_prof_btn.setText(tr("profile.rename"))
+            self.del_prof_btn.setText(tr("profile.delete"))
+
+            self.tabs.setTabText(0, tr("tab.buttons"))
+            self.tabs.setTabText(1, tr("tab.auto_rules"))
+            self.tabs.setTabText(2, tr("tab.settings"))
+            self.tabs.setTabText(3, tr("tab.monitor"))
+
+            self.footer_status.setText(tr("app.footer_live"))
+            self.restart_btn.setText(tr("btn.restart_daemon"))
+            self.hide_btn.setText(tr("btn.minimize_tray"))
+
+            self.tray.setToolTip(tr("app.tray_tooltip_default"))
+            self.tray_profile_menu.setTitle(tr("profile.switch_menu"))
+            self.tray_2d_action.setText(tr("tray.toggle_2d"))
+            self.open_action.setText(tr("tray.open"))
+            self.restart_action.setText(tr("tray.restart"))
+            self.quit_action.setText(tr("tray.quit"))
+            self.update_tray_profiles()
+
+            if hasattr(self, "btn_tab"):
+                self.btn_tab.retranslate_ui()
+            if hasattr(self, "auto_rules_tab"):
+                self.auto_rules_tab.retranslate_ui()
+            if hasattr(self, "settings_tab"):
+                self.settings_tab.retranslate_ui()
+            if hasattr(self, "monitor_tab"):
+                self.monitor_tab.retranslate_ui()
+
+            self.update_daemon_status()
+        finally:
+            self._retranslating = False
 
     def init_ui(self):
         central = QWidget()
@@ -86,14 +155,14 @@ class MainWindow(QMainWindow):
         brand_box.addWidget(title)
 
         # Dezente Version / Subtitle-Badge direkt daneben
-        subtitle = QLabel(tr("app.subtitle"))
-        subtitle.setStyleSheet(
+        self.subtitle_lbl = QLabel(tr("app.subtitle"))
+        self.subtitle_lbl.setStyleSheet(
             "font-family: 'Inter Tight', 'Inter', sans-serif; "
             "color: #64748b; font-size: 11px; font-weight: 500; "
             "margin-left: 4px; padding-top: 2px;"
         )
-        subtitle.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-        brand_box.addWidget(subtitle)
+        self.subtitle_lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        brand_box.addWidget(self.subtitle_lbl)
 
         header.addLayout(brand_box)
 
@@ -152,7 +221,7 @@ class MainWindow(QMainWindow):
         cluster_layout.addWidget(divider)
 
         # 3. 2D Mode Interactive Toggle
-        self.toggle_2d_btn = QPushButton("2D-Gleiten: AN")
+        self.toggle_2d_btn = QPushButton(tr("mode.2d_on"))
         self.toggle_2d_btn.setObjectName("modeToggleBtn")
         self.toggle_2d_btn.setFixedHeight(28)
         self.toggle_2d_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -171,9 +240,9 @@ class MainWindow(QMainWindow):
         prof_icon_lbl.setPixmap(get_icon("layers", color="#38bdf8", size=18).pixmap(18, 18))
         prof_bar.addWidget(prof_icon_lbl)
 
-        prof_lbl = QLabel(tr("profile.label"))
-        prof_lbl.setStyleSheet("font-weight: 700; color: #93c5fd; font-size: 13px;")
-        prof_bar.addWidget(prof_lbl)
+        self.prof_lbl = QLabel(tr("profile.label"))
+        self.prof_lbl.setStyleSheet("font-weight: 700; color: #93c5fd; font-size: 13px;")
+        prof_bar.addWidget(self.prof_lbl)
 
         self.profile_combo = QComboBox()
         self.profile_combo.setMinimumWidth(190)
@@ -233,16 +302,16 @@ class MainWindow(QMainWindow):
 
         footer.addStretch()
 
-        restart_btn = QPushButton(tr("btn.restart_daemon"))
-        restart_btn.setObjectName("secondaryBtn")
-        restart_btn.setIcon(get_icon("refresh", color="#94a3b8", size=14))
-        restart_btn.clicked.connect(self.restart_daemon)
-        footer.addWidget(restart_btn)
+        self.restart_btn = QPushButton(tr("btn.restart_daemon"))
+        self.restart_btn.setObjectName("secondaryBtn")
+        self.restart_btn.setIcon(get_icon("refresh", color="#94a3b8", size=14))
+        self.restart_btn.clicked.connect(self.restart_daemon)
+        footer.addWidget(self.restart_btn)
 
-        hide_btn = QPushButton(tr("btn.minimize_tray"))
-        hide_btn.setIcon(get_icon("minimize", color="#ffffff", size=14))
-        hide_btn.clicked.connect(self.hide)
-        footer.addWidget(hide_btn)
+        self.hide_btn = QPushButton(tr("btn.minimize_tray"))
+        self.hide_btn.setIcon(get_icon("minimize", color="#ffffff", size=14))
+        self.hide_btn.clicked.connect(self.hide)
+        footer.addWidget(self.hide_btn)
 
         main_layout.addLayout(footer)
 
@@ -286,7 +355,9 @@ class MainWindow(QMainWindow):
             self.auto_rules_tab.populate_profile_combo()
 
     def create_new_profile(self):
-        name, ok = QInputDialog.getText(self, "Neues Profil", "Name für das neue Profil:")
+        name, ok = QInputDialog.getText(
+            self, tr("profile.dialog_new_title"), tr("profile.dialog_new_label")
+        )
         if ok and name.strip():
             clean_name = name.strip()
             res = self.config_mgr.create_profile(clean_name)
@@ -294,11 +365,19 @@ class MainWindow(QMainWindow):
                 self.populate_profile_combo()
                 self.switch_to_profile(clean_name)
             else:
-                QMessageBox.warning(self, "Fehler", f"Ein Profil mit dem Namen '{clean_name}' existiert bereits.")
+                QMessageBox.warning(
+                    self, tr("profile.error_title"),
+                    tr("profile.error_exists", name=clean_name),
+                )
 
     def copy_current_profile(self):
         cur = self.config_mgr.get_active_profile_name()
-        name, ok = QInputDialog.getText(self, "Profil duplizieren", f"Name für Kopie von '{cur}':", text=f"{cur} (Kopie)")
+        name, ok = QInputDialog.getText(
+            self,
+            tr("profile.dialog_copy_title"),
+            tr("profile.dialog_copy_label", cur=cur),
+            text=tr("profile.dialog_copy_default", cur=cur),
+        )
         if ok and name.strip():
             clean_name = name.strip()
             res = self.config_mgr.create_profile(clean_name, copy_from=cur)
@@ -306,11 +385,19 @@ class MainWindow(QMainWindow):
                 self.populate_profile_combo()
                 self.switch_to_profile(clean_name)
             else:
-                QMessageBox.warning(self, "Fehler", f"Ein Profil mit dem Namen '{clean_name}' existiert bereits.")
+                QMessageBox.warning(
+                    self, tr("profile.error_title"),
+                    tr("profile.error_exists", name=clean_name),
+                )
 
     def rename_current_profile(self):
         cur = self.config_mgr.get_active_profile_name()
-        name, ok = QInputDialog.getText(self, "Profil umbenennen", f"Neuer Name für '{cur}':", text=cur)
+        name, ok = QInputDialog.getText(
+            self,
+            tr("profile.dialog_rename_title"),
+            tr("profile.dialog_rename_label", cur=cur),
+            text=cur,
+        )
         if ok and name.strip() and name.strip() != cur:
             clean_name = name.strip()
             res = self.config_mgr.rename_profile(cur, clean_name)
@@ -318,19 +405,24 @@ class MainWindow(QMainWindow):
                 self.populate_profile_combo()
                 self.switch_to_profile(clean_name)
             else:
-                QMessageBox.warning(self, "Fehler", "Ungültiger Name oder Profil existiert bereits.")
+                QMessageBox.warning(
+                    self, tr("profile.error_title"), tr("profile.error_invalid")
+                )
 
     def delete_current_profile(self):
         profs = self.config_mgr.get_profiles()
         if len(profs) <= 1:
-            QMessageBox.warning(self, "Löschen nicht möglich", "Das letzte verbleibende Profil kann nicht gelöscht werden.")
+            QMessageBox.warning(
+                self, tr("profile.error_last_title"), tr("profile.error_last_body")
+            )
             return
 
         cur = self.config_mgr.get_active_profile_name()
         ans = QMessageBox.question(
-            self, "Profil löschen",
-            f"Möchtest du das Profil '{cur}' wirklich löschen?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            self,
+            tr("profile.dialog_delete_title"),
+            tr("profile.dialog_delete_body", cur=cur),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if ans == QMessageBox.StandardButton.Yes:
             self.config_mgr.delete_profile(cur)
@@ -342,9 +434,8 @@ class MainWindow(QMainWindow):
         """Erstellt das Tray-Icon in der Systemleiste."""
         self.tray = QSystemTrayIcon(self)
         self.tray.setIcon(self.app_icon)
-        self.tray.setToolTip("Orbiter — 3Dconnexion Controller")
+        self.tray.setToolTip(tr("app.tray_tooltip_default"))
 
-        # Kontextmenü für Tray
         self.tray_menu = QMenu()
         self.tray_menu.setStyleSheet(DARK_THEME)
 
@@ -353,8 +444,7 @@ class MainWindow(QMainWindow):
         self.tray_menu.addAction(self.tray_status_action)
         self.tray_menu.addSeparator()
 
-        # Profil-Untermenü
-        self.tray_profile_menu = QMenu("Profil wechseln", self.tray_menu)
+        self.tray_profile_menu = QMenu(tr("profile.switch_menu"), self.tray_menu)
         self.tray_profile_menu.setIcon(get_icon("layers", color="#38bdf8", size=16))
         self.tray_profile_menu.setStyleSheet(DARK_THEME)
         self.tray_menu.addMenu(self.tray_profile_menu)
@@ -364,19 +454,19 @@ class MainWindow(QMainWindow):
         self.tray_2d_action.triggered.connect(self.toggle_2d_mode)
         self.tray_menu.addAction(self.tray_2d_action)
 
-        open_action = QAction(get_icon("settings", color="#94a3b8", size=16), tr("tray.open"), self)
-        open_action.triggered.connect(self.show_and_activate)
-        self.tray_menu.addAction(open_action)
+        self.open_action = QAction(get_icon("settings", color="#94a3b8", size=16), tr("tray.open"), self)
+        self.open_action.triggered.connect(self.show_and_activate)
+        self.tray_menu.addAction(self.open_action)
 
-        restart_action = QAction(get_icon("refresh", color="#94a3b8", size=16), tr("tray.restart"), self)
-        restart_action.triggered.connect(self.restart_daemon)
-        self.tray_menu.addAction(restart_action)
+        self.restart_action = QAction(get_icon("refresh", color="#94a3b8", size=16), tr("tray.restart"), self)
+        self.restart_action.triggered.connect(self.restart_daemon)
+        self.tray_menu.addAction(self.restart_action)
 
         self.tray_menu.addSeparator()
 
-        quit_action = QAction(get_icon("power", color="#f87171", size=16), tr("tray.quit"), self)
-        quit_action.triggered.connect(QApplication.instance().quit)
-        self.tray_menu.addAction(quit_action)
+        self.quit_action = QAction(get_icon("power", color="#f87171", size=16), tr("tray.quit"), self)
+        self.quit_action.triggered.connect(QApplication.instance().quit)
+        self.tray_menu.addAction(self.quit_action)
 
         self.tray.setContextMenu(self.tray_menu)
         self.tray.activated.connect(self.on_tray_activated)
@@ -553,7 +643,11 @@ class MainWindow(QMainWindow):
                 self.update_tray_profiles()
 
             active_name = self.config_mgr.get_active_profile_name()
-            self.tray.setToolTip(f"Orbiter — {self.connected_device or 'SpaceMouse'} (Profil: {active_name})")
+            self.tray.setToolTip(tr(
+                "app.tray_tooltip",
+                device=self.connected_device or "SpaceMouse",
+                profile=active_name,
+            ))
 
         except Exception:
             self.status_badge.setText(
@@ -570,6 +664,6 @@ class MainWindow(QMainWindow):
         try:
             subprocess.run(["systemctl", "--user", "restart", "orbiter"], check=False)
             self.update_daemon_status()
-            QMessageBox.information(self, "Orbiter", "Dienst wurde erfolgreich neu gestartet.")
+            QMessageBox.information(self, "Orbiter", tr("btn.restart_ok"))
         except Exception as e:
-            QMessageBox.warning(self, "Orbiter", f"Konnte Dienst nicht neu starten: {e}")
+            QMessageBox.warning(self, "Orbiter", tr("btn.restart_fail", error=e))

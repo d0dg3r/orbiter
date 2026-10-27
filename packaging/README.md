@@ -23,6 +23,18 @@ cd /pfad/zu/orbiter
 
 Artefakte landen in `dist/`.
 
+## GitHub Release (einmal lokal bauen)
+
+Pakete werden **nur lokal** mit nfpm gebaut und als Release-Assets hochgeladen — kein zweites CI-Build:
+
+```bash
+./packaging/release.sh              # Version aus pyproject.toml
+VERSION=0.2.0 ./packaging/release.sh
+./packaging/release.sh --dry-run    # nur bauen, kein Upload
+```
+
+Voraussetzung: `gh` eingeloggt, Remote `github` → `d0dg3r/orbiter`. Skript setzt Tag `vX.Y.Z`, pusht ihn und führt `gh release create` (bzw. `upload --clobber`) aus.
+
 ## Installieren
 
 ```bash

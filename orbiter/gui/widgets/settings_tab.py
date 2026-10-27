@@ -7,7 +7,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from orbiter.gui.style import make_combo_opaque
-from orbiter.i18n import tr, set_language, resolve_lang
+from orbiter.i18n import (
+    tr, set_language, resolve_lang, available_languages, language_native_name
+)
 
 
 class SettingsTabWidget(QWidget):
@@ -20,30 +22,23 @@ class SettingsTabWidget(QWidget):
     def init_ui(self):
         layout = QVBoxLayout(self)
 
-        # Language
-        lang_group = QGroupBox(tr("settings.language"))
-        lang_layout = QVBoxLayout(lang_group)
+        self.lang_group = QGroupBox()
+        lang_layout = QVBoxLayout(self.lang_group)
         self.lang_combo = QComboBox()
         make_combo_opaque(self.lang_combo)
-        self.lang_combo.addItem(tr("settings.language_auto"), "auto")
-        self.lang_combo.addItem(tr("settings.language_de"), "de")
-        self.lang_combo.addItem(tr("settings.language_en"), "en")
-        cur = self.config_mgr.get("ui_language", "auto")
-        idx = self.lang_combo.findData(cur)
-        if idx >= 0:
-            self.lang_combo.setCurrentIndex(idx)
+        self._rebuild_lang_combo()
         self.lang_combo.currentIndexChanged.connect(self.on_language_changed)
         lang_layout.addWidget(self.lang_combo)
-        hint = QLabel(tr("settings.language_hint"))
-        hint.setStyleSheet("color: #64748b; font-size: 11px;")
-        lang_layout.addWidget(hint)
-        layout.addWidget(lang_group)
+        self.lang_hint = QLabel()
+        self.lang_hint.setStyleSheet("color: #64748b; font-size: 11px;")
+        lang_layout.addWidget(self.lang_hint)
+        layout.addWidget(self.lang_group)
 
-        # 1. Zeiger-Einstellungen
-        pointer_group = QGroupBox(tr("settings.pointer_group"))
-        p_layout = QVBoxLayout(pointer_group)
+        self.pointer_group = QGroupBox()
+        p_layout = QVBoxLayout(self.pointer_group)
 
-        p_layout.addWidget(QLabel(tr("settings.pointer_speed")))
+        self.speed_caption = QLabel()
+        p_layout.addWidget(self.speed_caption)
         speed_box = QHBoxLayout()
         self.speed_slider = QSlider(Qt.Orientation.Horizontal)
         self.speed_slider.setRange(10, 200)
@@ -52,7 +47,8 @@ class SettingsTabWidget(QWidget):
         speed_box.addWidget(self.speed_label)
         p_layout.addLayout(speed_box)
 
-        p_layout.addWidget(QLabel(tr("settings.deadzone")))
+        self.dz_caption = QLabel()
+        p_layout.addWidget(self.dz_caption)
         dz_box = QHBoxLayout()
         self.dz_slider = QSlider(Qt.Orientation.Horizontal)
         self.dz_slider.setRange(5, 50)
@@ -61,15 +57,15 @@ class SettingsTabWidget(QWidget):
         dz_box.addWidget(self.dz_label)
         p_layout.addLayout(dz_box)
 
-        self.mode_2d_check = QCheckBox(tr("settings.mode_2d_default"))
+        self.mode_2d_check = QCheckBox()
         p_layout.addWidget(self.mode_2d_check)
+        layout.addWidget(self.pointer_group)
 
-        layout.addWidget(pointer_group)
+        self.scroll_group = QGroupBox()
+        s_layout = QVBoxLayout(self.scroll_group)
 
-        scroll_group = QGroupBox(tr("settings.scroll_group"))
-        s_layout = QVBoxLayout(scroll_group)
-
-        s_layout.addWidget(QLabel(tr("settings.scroll_speed")))
+        self.sc_speed_caption = QLabel()
+        s_layout.addWidget(self.sc_speed_caption)
         sc_speed_box = QHBoxLayout()
         self.sc_speed_slider = QSlider(Qt.Orientation.Horizontal)
         self.sc_speed_slider.setRange(10, 100)
@@ -78,7 +74,8 @@ class SettingsTabWidget(QWidget):
         sc_speed_box.addWidget(self.sc_speed_label)
         s_layout.addLayout(sc_speed_box)
 
-        s_layout.addWidget(QLabel(tr("settings.scroll_threshold")))
+        self.sc_dz_caption = QLabel()
+        s_layout.addWidget(self.sc_dz_caption)
         sc_dz_box = QHBoxLayout()
         self.sc_dz_slider = QSlider(Qt.Orientation.Horizontal)
         self.sc_dz_slider.setRange(40, 150)
@@ -87,7 +84,7 @@ class SettingsTabWidget(QWidget):
         sc_dz_box.addWidget(self.sc_dz_label)
         s_layout.addLayout(sc_dz_box)
 
-        layout.addWidget(scroll_group)
+        layout.addWidget(self.scroll_group)
 
         self.speed_slider.valueChanged.connect(self.on_speed_changed)
         self.dz_slider.valueChanged.connect(self.on_dz_changed)
@@ -97,6 +94,35 @@ class SettingsTabWidget(QWidget):
 
         layout.addStretch()
         self.load_settings()
+        self.retranslate_ui()
+
+    def _rebuild_lang_combo(self):
+        self._loading = True
+        cur = self.config_mgr.get("ui_language", "auto")
+        self.lang_combo.blockSignals(True)
+        self.lang_combo.clear()
+        self.lang_combo.addItem(tr("settings.language_auto"), "auto")
+        for code in available_languages():
+            self.lang_combo.addItem(language_native_name(code), code)
+        idx = self.lang_combo.findData(cur)
+        if idx < 0:
+            idx = 0
+        self.lang_combo.setCurrentIndex(idx)
+        self.lang_combo.blockSignals(False)
+        self._loading = False
+
+    def retranslate_ui(self):
+        self.lang_group.setTitle(tr("settings.language"))
+        self.lang_hint.setText(tr("settings.language_hint"))
+        # Auto-Item-Text aktualisieren, Codes behalten
+        self._rebuild_lang_combo()
+        self.pointer_group.setTitle(tr("settings.pointer_group"))
+        self.speed_caption.setText(tr("settings.pointer_speed"))
+        self.dz_caption.setText(tr("settings.deadzone"))
+        self.mode_2d_check.setText(tr("settings.mode_2d_default"))
+        self.scroll_group.setTitle(tr("settings.scroll_group"))
+        self.sc_speed_caption.setText(tr("settings.scroll_speed"))
+        self.sc_dz_caption.setText(tr("settings.scroll_threshold"))
 
     def on_language_changed(self, idx):
         if self._loading or idx < 0:
@@ -105,6 +131,7 @@ class SettingsTabWidget(QWidget):
         self.config_mgr.set("ui_language", code)
         self.config_mgr.save()
         set_language(resolve_lang(code))
+        # Listener auf MainWindow ruft retranslate_ui auf allen Tabs
 
     def load_settings(self):
         self._loading = True

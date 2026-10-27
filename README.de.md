@@ -55,6 +55,12 @@ systemctl --user enable --now orbiter
 
 Details: [packaging/README.md](packaging/README.md)
 
+GitHub-Release aus einem lokalen Build:
+
+```bash
+./packaging/release.sh
+```
+
 ### Entwickler-Install
 
 ```bash

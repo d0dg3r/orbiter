@@ -8,6 +8,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QThread, pyqtSignal
 from orbiter.config import IPC_SOCKET
+from orbiter.i18n import tr
+
 
 class LiveMonitorThread(QThread):
     event_received = pyqtSignal(dict)
@@ -37,37 +39,31 @@ class LiveMonitorThread(QThread):
         except Exception:
             pass
 
+
 class LiveMonitorWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._axis_name_labels = {}
         self.init_ui()
         self.start_worker()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
 
-        desc = QLabel("Bewege die Kappe oder drücke Tasten, um die Rohdaten des SpaceExplorers live zu sehen:")
-        desc.setStyleSheet("color: #94a3b8; margin-bottom: 8px;")
-        layout.addWidget(desc)
+        self.desc = QLabel()
+        self.desc.setStyleSheet("color: #94a3b8; margin-bottom: 8px;")
+        layout.addWidget(self.desc)
 
-        # Achsen-Gitter
-        axis_group = QGroupBox("6-Achsen Sensorik (Auslenkung)")
-        grid = QGridLayout(axis_group)
-
-        self.axis_labels = [
-            ("X-Achse (Links/Rechts)", 0),
-            ("Y-Achse (Druck/Heben)", 1),
-            ("Z-Achse (Vor/Zurück)", 2),
-            ("Pitch (Neigung vorn/hinten)", 3),
-            ("Roll (Neigung links/rechts)", 4),
-            ("Twist / Yaw (Kappe drehen)", 5)
-        ]
+        self.axis_group = QGroupBox()
+        grid = QGridLayout(self.axis_group)
 
         self.bars = {}
         self.val_labels = {}
 
-        for row, (name, code) in enumerate(self.axis_labels):
-            grid.addWidget(QLabel(name), row, 0)
+        for row, code in enumerate(range(6)):
+            name_lbl = QLabel()
+            grid.addWidget(name_lbl, row, 0)
+            self._axis_name_labels[code] = name_lbl
             bar = QProgressBar()
             bar.setRange(-400, 400)
             bar.setValue(0)
@@ -82,17 +78,27 @@ class LiveMonitorWidget(QWidget):
             self.bars[code] = bar
             self.val_labels[code] = val_lbl
 
-        layout.addWidget(axis_group)
+        layout.addWidget(self.axis_group)
 
-        # Tasten-Feedback
-        btn_group = QGroupBox("Tasten-Sensor")
-        b_layout = QVBoxLayout(btn_group)
-        self.btn_status = QLabel("Keine Taste gedrückt")
+        self.btn_group = QGroupBox()
+        b_layout = QVBoxLayout(self.btn_group)
+        self.btn_status = QLabel()
         self.btn_status.setStyleSheet("font-size: 16px; font-weight: bold; color: #38bdf8; padding: 12px;")
         b_layout.addWidget(self.btn_status)
-        layout.addWidget(btn_group)
+        layout.addWidget(self.btn_group)
 
         layout.addStretch()
+        self.retranslate_ui()
+
+    def retranslate_ui(self):
+        self.desc.setText(tr("monitor.desc"))
+        self.axis_group.setTitle(tr("monitor.axis_group"))
+        for code, lbl in self._axis_name_labels.items():
+            lbl.setText(tr(f"monitor.axis.{code}"))
+        self.btn_group.setTitle(tr("monitor.btn_group"))
+        # Idle text only if not showing a press state (heuristic: green = pressed)
+        if "22c55e" not in self.btn_status.styleSheet():
+            self.btn_status.setText(tr("monitor.btn_idle"))
 
     def start_worker(self):
         self.worker = LiveMonitorThread(self)
@@ -109,12 +115,16 @@ class LiveMonitorWidget(QWidget):
                 self.val_labels[code].setText(str(val))
 
         elif etype == "button":
-            name = ev.get("name", "Unbekannt")
+            name = ev.get("name", tr("monitor.unknown"))
             code = ev.get("code")
             val = ev.get("value")
             if val == 1:
-                self.btn_status.setText(f"Gedrückt: {name} (Code {code})")
-                self.btn_status.setStyleSheet("font-size: 16px; font-weight: bold; color: #22c55e; padding: 12px;")
+                self.btn_status.setText(tr("monitor.btn_down", name=name, code=code))
+                self.btn_status.setStyleSheet(
+                    "font-size: 16px; font-weight: bold; color: #22c55e; padding: 12px;"
+                )
             else:
-                self.btn_status.setText(f"Losgelassen: {name} (Code {code})")
-                self.btn_status.setStyleSheet("font-size: 16px; font-weight: bold; color: #94a3b8; padding: 12px;")
+                self.btn_status.setText(tr("monitor.btn_up", name=name, code=code))
+                self.btn_status.setStyleSheet(
+                    "font-size: 16px; font-weight: bold; color: #94a3b8; padding: 12px;"
+                )
