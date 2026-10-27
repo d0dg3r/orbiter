@@ -97,6 +97,11 @@ QPushButton {
     padding: 8px 16px;
     font-weight: 600;
     font-size: 13px;
+    outline: none;
+}
+
+QPushButton:focus {
+    outline: none;
 }
 
 QPushButton:hover {
@@ -108,10 +113,45 @@ QPushButton:pressed {
     background-color: #1d4ed8;
 }
 
+/* Unified Header Cluster */
+QFrame#headerCluster {
+    background-color: #141724;
+    border: 1px solid #232a3d;
+    border-radius: 10px;
+}
+
+QLabel#deviceStatusLabel {
+    font-size: 12px;
+    font-weight: 600;
+    color: #cbd5e1;
+    background: transparent;
+    border: none;
+    padding-left: 2px;
+}
+
+QFrame#headerDivider {
+    background-color: #242c40;
+    border: none;
+    width: 1px;
+}
+
+QPushButton#modeToggleBtn {
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    outline: none;
+}
+
+QPushButton#modeToggleBtn:focus {
+    outline: none;
+}
+
 QPushButton#secondaryBtn {
     background-color: #1a1f2d;
     color: #cbd5e1;
     border: 1px solid #293147;
+    outline: none;
 }
 
 QPushButton#secondaryBtn:hover {

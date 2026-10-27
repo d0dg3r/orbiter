@@ -10,7 +10,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel,
     QPushButton, QMessageBox, QSystemTrayIcon, QMenu, QApplication,
-    QComboBox, QInputDialog
+    QComboBox, QInputDialog, QFrame
 )
 from PyQt6.QtCore import QTimer, Qt, QSize
 from PyQt6.QtGui import QIcon, QAction
@@ -78,17 +78,34 @@ class MainWindow(QMainWindow):
 
         header.addStretch()
 
-        # 2D Toggle Quick Button
-        self.toggle_2d_btn = QPushButton("2D-Präzision: AN")
-        self.toggle_2d_btn.setObjectName("secondaryBtn")
-        self.toggle_2d_btn.setIcon(get_icon("target", color="#38bdf8", size=16))
-        self.toggle_2d_btn.clicked.connect(self.toggle_2d_mode)
-        header.addWidget(self.toggle_2d_btn)
+        # Header Controls Cluster (Unified Hardware & Mode Capsule)
+        header_cluster = QFrame()
+        header_cluster.setObjectName("headerCluster")
+        cluster_layout = QHBoxLayout(header_cluster)
+        cluster_layout.setContentsMargins(12, 4, 4, 4)
+        cluster_layout.setSpacing(10)
 
-        # Status Badge
-        self.status_badge = QLabel("Verbindung wird geprüft...")
-        self.status_badge.setStyleSheet("background-color: #1a1e2b; padding: 7px 14px; border-radius: 8px; font-weight: 600; color: #94a3b8; border: 1px solid #282f42;")
-        header.addWidget(self.status_badge)
+        # 1. Hardware Status Indicator
+        self.status_badge = QLabel("Prüfe Verbindung...")
+        self.status_badge.setObjectName("deviceStatusLabel")
+        cluster_layout.addWidget(self.status_badge)
+
+        # 2. Sleek Divider
+        divider = QFrame()
+        divider.setFrameShape(QFrame.Shape.VLine)
+        divider.setObjectName("headerDivider")
+        divider.setFixedHeight(18)
+        cluster_layout.addWidget(divider)
+
+        # 3. 2D Mode Interactive Toggle
+        self.toggle_2d_btn = QPushButton("2D-Gleiten: AN")
+        self.toggle_2d_btn.setObjectName("modeToggleBtn")
+        self.toggle_2d_btn.setFixedHeight(28)
+        self.toggle_2d_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.toggle_2d_btn.clicked.connect(self.toggle_2d_mode)
+        cluster_layout.addWidget(self.toggle_2d_btn)
+
+        header.addWidget(header_cluster)
 
         main_layout.addLayout(header)
 
@@ -146,7 +163,7 @@ class MainWindow(QMainWindow):
         self.monitor_tab = LiveMonitorWidget(self)
 
         self.tabs.addTab(self.btn_tab, get_icon("keyboard", color="#38bdf8", active_color="#ffffff", size=18), "Tastenbelegung")
-        self.tabs.addTab(self.settings_tab, get_icon("sliders", color="#38bdf8", active_color="#ffffff", size=18), "Empfindlichkeit & Kurven")
+        self.tabs.addTab(self.settings_tab, get_icon("sliders", color="#38bdf8", active_color="#ffffff", size=18), "Empfindlichkeit && Kurven")
         self.tabs.addTab(self.monitor_tab, get_icon("activity", color="#38bdf8", active_color="#ffffff", size=18), "Live Hardware-Tester")
 
         main_layout.addWidget(self.tabs)
@@ -366,11 +383,12 @@ class MainWindow(QMainWindow):
 
     def update_daemon_status(self):
         if not IPC_SOCKET.exists():
-            self.status_badge.setText("● Dienst offline")
-            self.status_badge.setStyleSheet("background-color: #2b1717; color: #f87171; padding: 7px 14px; border-radius: 8px; font-weight: 600; border: 1px solid #4a2020;")
+            self.status_badge.setText('<span style="color: #f87171; font-size: 13px;">●</span>  <span style="color: #94a3b8;">Dienst offline</span>')
             self.tray_status_action.setText("● Dienst offline")
+            self.toggle_2d_btn.setEnabled(False)
             return
 
+        self.toggle_2d_btn.setEnabled(True)
         try:
             resp = self.send_ipc_command("GET_STATUS")
             if not resp:
@@ -379,22 +397,48 @@ class MainWindow(QMainWindow):
             status = json.loads(resp)
             if status.get("connected"):
                 self.connected_device = status.get("device_name", "SpaceMouse")
-                self.status_badge.setText(f"● {self.connected_device}")
-                self.status_badge.setStyleSheet("background-color: #12281e; color: #4ade80; padding: 7px 14px; border-radius: 8px; font-weight: 600; border: 1px solid #1a4230;")
+                self.status_badge.setText(
+                    f'<span style="color: #22c55e; font-size: 13px;">●</span>  <span style="color: #e2e8f0; font-weight: 600;">{self.connected_device}</span>'
+                )
                 self.tray_status_action.setText(f"● {self.connected_device}")
             else:
-                self.status_badge.setText("○ Kein Gerät gefunden")
-                self.status_badge.setStyleSheet("background-color: #2b1f13; color: #fb923c; padding: 7px 14px; border-radius: 8px; font-weight: 600; border: 1px solid #4a341e;")
+                self.status_badge.setText(
+                    '<span style="color: #f59e0b; font-size: 13px;">○</span>  <span style="color: #94a3b8;">Kein Gerät verbunden</span>'
+                )
                 self.tray_status_action.setText("○ Kein Gerät verbunden")
 
             self.is_2d = status.get("mode_2d", True)
-            self.toggle_2d_btn.setText(f"2D-Präzision: {'AN' if self.is_2d else 'AUS'}")
             if self.is_2d:
-                self.toggle_2d_btn.setStyleSheet("background-color: #1e3a8a; color: #93c5fd; border: 1px solid #2563eb;")
+                self.toggle_2d_btn.setText("2D-Gleiten: AN")
+                self.toggle_2d_btn.setIcon(get_icon("target", color="#ffffff", size=13))
+                self.toggle_2d_btn.setStyleSheet("""
+                    QPushButton#modeToggleBtn {
+                        background-color: #2563eb;
+                        color: #ffffff;
+                        border: 1px solid #3b82f6;
+                    }
+                    QPushButton#modeToggleBtn:hover {
+                        background-color: #3b82f6;
+                        border-color: #60a5fa;
+                    }
+                """)
                 self.tray_2d_action.setText("2D-Präzisionsmodus (Aktiv)")
                 self.tray_2d_action.setIcon(get_icon("check", color="#38bdf8", size=16))
             else:
-                self.toggle_2d_btn.setStyleSheet("background-color: #1a1f2d; color: #94a3b8; border: 1px solid #293147;")
+                self.toggle_2d_btn.setText("3D-Hybrid: AN")
+                self.toggle_2d_btn.setIcon(get_icon("target", color="#94a3b8", size=13))
+                self.toggle_2d_btn.setStyleSheet("""
+                    QPushButton#modeToggleBtn {
+                        background-color: #1a1e2d;
+                        color: #94a3b8;
+                        border: 1px solid #2a3147;
+                    }
+                    QPushButton#modeToggleBtn:hover {
+                        background-color: #242b3e;
+                        color: #f1f5f9;
+                        border-color: #3b4664;
+                    }
+                """)
                 self.tray_2d_action.setText("2D-Präzisionsmodus (Inaktiv)")
                 self.tray_2d_action.setIcon(get_icon("target", color="#64748b", size=16))
 
@@ -410,8 +454,7 @@ class MainWindow(QMainWindow):
             self.tray.setToolTip(f"Orbiter — {self.connected_device or 'SpaceMouse'} (Profil: {active_name})")
 
         except Exception:
-            self.status_badge.setText("● Dienst antwortet nicht")
-            self.status_badge.setStyleSheet("background-color: #2b1717; color: #f87171; padding: 7px 14px; border-radius: 8px; font-weight: 600; border: 1px solid #4a2020;")
+            self.status_badge.setText('<span style="color: #f87171; font-size: 13px;">●</span>  <span style="color: #94a3b8;">Dienst antwortet nicht</span>')
             self.tray_status_action.setText("● Dienst antwortet nicht")
 
     def toggle_2d_mode(self):
