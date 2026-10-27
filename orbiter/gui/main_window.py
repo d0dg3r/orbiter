@@ -47,6 +47,7 @@ class MainWindow(QMainWindow):
         self.connected_device = None
         self._updating_profiles = False
         self._retranslating = False
+        self._status_fail_count = 0
 
         self.init_ui()
         self.init_tray()
@@ -545,17 +546,44 @@ class MainWindow(QMainWindow):
         event.ignore()
         self.hide()
 
-    def send_ipc_command(self, cmd):
+    def send_ipc_command(self, cmd, timeout=2.0):
+        """Send a command and return the first matching response line.
+
+        Skips stray event JSON lines so status polls stay reliable while the
+        device is moving (broadcasts used to share the same client pool).
+        """
         if not IPC_SOCKET.exists():
             return None
         try:
             client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            client.settimeout(0.5)
+            client.settimeout(timeout)
             client.connect(str(IPC_SOCKET))
             client.sendall((cmd + "\n").encode("utf-8"))
-            resp = client.recv(1024).decode("utf-8").strip()
+            want_status = cmd.strip() == "GET_STATUS"
+            buf = ""
+            while True:
+                chunk = client.recv(8192)
+                if not chunk:
+                    break
+                buf += chunk.decode("utf-8", errors="ignore")
+                while "\n" in buf:
+                    line, buf = buf.split("\n", 1)
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if want_status:
+                        try:
+                            obj = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if isinstance(obj, dict) and "connected" in obj:
+                            client.close()
+                            return line
+                        continue
+                    client.close()
+                    return line
             client.close()
-            return resp
+            return None
         except Exception:
             return None
 
@@ -563,6 +591,7 @@ class MainWindow(QMainWindow):
         from orbiter.conflicts import spacenavd_running
 
         if not IPC_SOCKET.exists():
+            self._status_fail_count = 0
             if spacenavd_running():
                 self.status_badge.setText(
                     f'<span style="color: #f87171; font-size: 13px;">●</span>  '
@@ -587,6 +616,7 @@ class MainWindow(QMainWindow):
                 raise Exception("Keine Antwort")
 
             status = json.loads(resp)
+            self._status_fail_count = 0
             if status.get("spacenavd_conflict"):
                 self.status_badge.setText(
                     f'<span style="color: #f87171; font-size: 13px;">●</span>  '
@@ -670,6 +700,11 @@ class MainWindow(QMainWindow):
             ))
 
         except Exception:
+            # Debounce: one failed poll must not flicker the badge red while
+            # the device is still driving the pointer fine.
+            self._status_fail_count += 1
+            if self._status_fail_count < 3:
+                return
             self.status_badge.setText(
                 f'<span style="color: #f87171; font-size: 13px;">●</span>  '
                 f'<span style="color: #94a3b8;">{tr("status.no_response")}</span>'

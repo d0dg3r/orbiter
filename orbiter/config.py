@@ -18,6 +18,9 @@ DEFAULT_PROFILE_SETTINGS = {
     "scroll_speed": 0.003,
     "move_cooldown": 0.15,
     "mode_2d": True,
+    "tilt_blend": 0.4,
+    "lift_scroll_enabled": True,
+    "scroll_deadzone_lift": 90,
     "buttons": {
         "259": {
             "name": "Linke Maustaste",
@@ -120,6 +123,9 @@ HYPRLAND_JOE_PROFILE = {
     "scroll_speed": 0.003,
     "move_cooldown": 0.15,
     "mode_2d": True,
+    "tilt_blend": 0.4,
+    "lift_scroll_enabled": True,
+    "scroll_deadzone_lift": 90,
     "buttons": {
         "259": {
             "name": "Linke Maustaste",
@@ -224,6 +230,9 @@ DEFAULT_PROFILES = {
         "scroll_speed": 0.0035,
         "move_cooldown": 0.12,
         "mode_2d": False,
+        "tilt_blend": 0.4,
+        "lift_scroll_enabled": True,
+        "scroll_deadzone_lift": 90,
         "buttons": {
             "259": {
                 "name": "Linksklick",
@@ -294,6 +303,9 @@ DEFAULT_PROFILES = {
         "scroll_speed": 0.004,
         "move_cooldown": 0.15,
         "mode_2d": True,
+        "tilt_blend": 0.4,
+        "lift_scroll_enabled": True,
+        "scroll_deadzone_lift": 90,
         "buttons": {
             "259": {
                 "name": "Linksklick",
@@ -380,7 +392,9 @@ DEFAULT_CONFIG = {
 
 PROFILE_SETTINGS_KEYS = {
     "deadzone", "base_speed", "scroll_deadzone_twist",
-    "scroll_speed", "move_cooldown", "mode_2d", "buttons"
+    "scroll_speed", "move_cooldown", "mode_2d",
+    "tilt_blend", "lift_scroll_enabled", "scroll_deadzone_lift",
+    "buttons",
 }
 
 class ConfigManager:
@@ -413,6 +427,9 @@ class ConfigManager:
                     "scroll_speed": self.config.get("scroll_speed", 0.003),
                     "move_cooldown": self.config.get("move_cooldown", 0.15),
                     "mode_2d": self.config.get("mode_2d", True),
+                    "tilt_blend": self.config.get("tilt_blend", 0.4),
+                    "lift_scroll_enabled": self.config.get("lift_scroll_enabled", True),
+                    "scroll_deadzone_lift": self.config.get("scroll_deadzone_lift", 90),
                     "buttons": migrated_buttons
                 }
                 self.config["profiles"] = {

@@ -47,6 +47,17 @@ class SensitivityTabWidget(QWidget):
 
         self.mode_2d_check = QCheckBox()
         p_layout.addWidget(self.mode_2d_check)
+
+        self.tilt_caption = QLabel()
+        p_layout.addWidget(self.tilt_caption)
+        tilt_box = QHBoxLayout()
+        self.tilt_slider = QSlider(Qt.Orientation.Horizontal)
+        self.tilt_slider.setRange(0, 100)
+        self.tilt_label = QLabel()
+        tilt_box.addWidget(self.tilt_slider)
+        tilt_box.addWidget(self.tilt_label)
+        p_layout.addLayout(tilt_box)
+
         layout.addWidget(self.pointer_group)
 
         self.scroll_group = QGroupBox()
@@ -73,13 +84,29 @@ class SensitivityTabWidget(QWidget):
         sc_dz_box.addWidget(self.sc_dz_label)
         s_layout.addLayout(sc_dz_box)
 
+        self.lift_scroll_check = QCheckBox()
+        s_layout.addWidget(self.lift_scroll_check)
+
+        self.lift_dz_caption = QLabel()
+        s_layout.addWidget(self.lift_dz_caption)
+        lift_dz_box = QHBoxLayout()
+        self.lift_dz_slider = QSlider(Qt.Orientation.Horizontal)
+        self.lift_dz_slider.setRange(40, 150)
+        self.lift_dz_label = QLabel()
+        lift_dz_box.addWidget(self.lift_dz_slider)
+        lift_dz_box.addWidget(self.lift_dz_label)
+        s_layout.addLayout(lift_dz_box)
+
         layout.addWidget(self.scroll_group)
 
         self.speed_slider.valueChanged.connect(self.on_speed_changed)
         self.dz_slider.valueChanged.connect(self.on_dz_changed)
+        self.tilt_slider.valueChanged.connect(self.on_tilt_changed)
         self.sc_speed_slider.valueChanged.connect(self.on_sc_speed_changed)
         self.sc_dz_slider.valueChanged.connect(self.on_sc_dz_changed)
+        self.lift_dz_slider.valueChanged.connect(self.on_lift_dz_changed)
         self.mode_2d_check.toggled.connect(self.on_mode_2d_toggled)
+        self.lift_scroll_check.toggled.connect(self.on_lift_scroll_toggled)
 
         layout.addStretch()
         self.load_settings()
@@ -90,9 +117,12 @@ class SensitivityTabWidget(QWidget):
         self.speed_caption.setText(tr("settings.pointer_speed"))
         self.dz_caption.setText(tr("settings.deadzone"))
         self.mode_2d_check.setText(tr("settings.mode_2d_default"))
+        self.tilt_caption.setText(tr("settings.tilt_blend"))
         self.scroll_group.setTitle(tr("settings.scroll_group"))
         self.sc_speed_caption.setText(tr("settings.scroll_speed"))
         self.sc_dz_caption.setText(tr("settings.scroll_threshold"))
+        self.lift_scroll_check.setText(tr("settings.lift_scroll"))
+        self.lift_dz_caption.setText(tr("settings.lift_threshold"))
 
     def load_settings(self):
         self._loading = True
@@ -105,6 +135,10 @@ class SensitivityTabWidget(QWidget):
             self.dz_slider.setValue(int(dz))
             self.dz_label.setText(f"{dz}")
 
+            tilt = float(self.config_mgr.get("tilt_blend", 0.4))
+            self.tilt_slider.setValue(int(round(tilt * 100)))
+            self.tilt_label.setText(f"{int(round(tilt * 100))} %")
+
             sc_speed = self.config_mgr.get("scroll_speed", 0.0035)
             self.sc_speed_slider.setValue(int(sc_speed * 10000))
             self.sc_speed_label.setText(f"{sc_speed:.4f}")
@@ -114,8 +148,22 @@ class SensitivityTabWidget(QWidget):
             self.sc_dz_label.setText(f"{sc_dz}")
 
             self.mode_2d_check.setChecked(self.config_mgr.get("mode_2d", True))
+            self.lift_scroll_check.setChecked(
+                bool(self.config_mgr.get("lift_scroll_enabled", True))
+            )
+
+            lift_dz = self.config_mgr.get("scroll_deadzone_lift", 90)
+            self.lift_dz_slider.setValue(int(lift_dz))
+            self.lift_dz_label.setText(f"{lift_dz}")
+            self._update_lift_controls_enabled()
         finally:
             self._loading = False
+
+    def _update_lift_controls_enabled(self):
+        enabled = self.lift_scroll_check.isChecked()
+        self.lift_dz_caption.setEnabled(enabled)
+        self.lift_dz_slider.setEnabled(enabled)
+        self.lift_dz_label.setEnabled(enabled)
 
     def on_speed_changed(self, val):
         if self._loading:
@@ -130,6 +178,14 @@ class SensitivityTabWidget(QWidget):
             return
         self.dz_label.setText(f"{val}")
         self.config_mgr.set("deadzone", val)
+        self.config_mgr.save()
+
+    def on_tilt_changed(self, val):
+        if self._loading:
+            return
+        blend = val / 100.0
+        self.tilt_label.setText(f"{val} %")
+        self.config_mgr.set("tilt_blend", blend)
         self.config_mgr.save()
 
     def on_sc_speed_changed(self, val):
@@ -147,8 +203,22 @@ class SensitivityTabWidget(QWidget):
         self.config_mgr.set("scroll_deadzone_twist", val)
         self.config_mgr.save()
 
+    def on_lift_dz_changed(self, val):
+        if self._loading:
+            return
+        self.lift_dz_label.setText(f"{val}")
+        self.config_mgr.set("scroll_deadzone_lift", val)
+        self.config_mgr.save()
+
     def on_mode_2d_toggled(self, checked):
         if self._loading:
             return
         self.config_mgr.set("mode_2d", checked)
         self.config_mgr.save()
+
+    def on_lift_scroll_toggled(self, checked):
+        if self._loading:
+            return
+        self.config_mgr.set("lift_scroll_enabled", checked)
+        self.config_mgr.save()
+        self._update_lift_controls_enabled()
