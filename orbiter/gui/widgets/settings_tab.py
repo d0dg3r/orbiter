@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QComboBox, QPushButton, QFileDialog, QMessageBox
 )
 
-from orbiter.gui.style import make_combo_opaque
+from orbiter.gui.style import apply_group_layout, apply_tab_page_layout, make_combo_opaque
 from orbiter.gui.icons import get_icon
 from orbiter.i18n import (
     tr, set_language, resolve_lang, available_languages, language_native_name
@@ -26,9 +26,11 @@ class SettingsTabWidget(QWidget):
 
     def init_ui(self):
         layout = QVBoxLayout(self)
+        apply_tab_page_layout(layout)
 
         self.lang_group = QGroupBox()
         lang_layout = QVBoxLayout(self.lang_group)
+        apply_group_layout(lang_layout)
         self.lang_combo = QComboBox()
         make_combo_opaque(self.lang_combo)
         self._rebuild_lang_combo()
@@ -41,6 +43,7 @@ class SettingsTabWidget(QWidget):
 
         self.backup_group = QGroupBox()
         b_layout = QHBoxLayout(self.backup_group)
+        apply_group_layout(b_layout)
         self.export_btn = QPushButton()
         self.export_btn.setObjectName("secondaryBtn")
         self.export_btn.setIcon(get_icon("copy", color="#38bdf8", size=14))

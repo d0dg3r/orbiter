@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QThread, pyqtSignal, Qt
 from orbiter.config import IPC_SOCKET
+from orbiter.gui.style import apply_group_layout, apply_tab_page_layout
 from orbiter.i18n import tr
 
 _BTN_IDLE_STYLE = (
@@ -63,7 +64,7 @@ class LiveMonitorWidget(QWidget):
 
     def init_ui(self):
         layout = QVBoxLayout(self)
-        layout.setSpacing(14)
+        apply_tab_page_layout(layout)
 
         self.desc = QLabel()
         self.desc.setStyleSheet("color: #94a3b8; margin-bottom: 4px;")
@@ -71,6 +72,7 @@ class LiveMonitorWidget(QWidget):
 
         self.axis_group = QGroupBox()
         grid = QGridLayout(self.axis_group)
+        apply_group_layout(grid)
         grid.setHorizontalSpacing(14)
         grid.setVerticalSpacing(10)
         grid.setColumnStretch(1, 1)
@@ -114,7 +116,7 @@ class LiveMonitorWidget(QWidget):
 
         self.btn_group = QGroupBox()
         b_layout = QVBoxLayout(self.btn_group)
-        b_layout.setContentsMargins(8, 16, 8, 8)
+        apply_group_layout(b_layout)
         self.btn_status = QLabel()
         self.btn_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.btn_status.setMinimumHeight(48)

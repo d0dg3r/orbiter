@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
+from orbiter.gui.style import apply_group_layout, apply_tab_page_layout
 from orbiter.i18n import tr
 
 
@@ -18,9 +19,11 @@ class SensitivityTabWidget(QWidget):
 
     def init_ui(self):
         layout = QVBoxLayout(self)
+        apply_tab_page_layout(layout)
 
         self.pointer_group = QGroupBox()
         p_layout = QVBoxLayout(self.pointer_group)
+        apply_group_layout(p_layout)
 
         self.speed_caption = QLabel()
         p_layout.addWidget(self.speed_caption)
@@ -48,6 +51,7 @@ class SensitivityTabWidget(QWidget):
 
         self.scroll_group = QGroupBox()
         s_layout = QVBoxLayout(self.scroll_group)
+        apply_group_layout(s_layout)
 
         self.sc_speed_caption = QLabel()
         s_layout.addWidget(self.sc_speed_caption)

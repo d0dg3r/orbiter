@@ -58,9 +58,10 @@ systemctl --user enable --now orbiter-tray
 
 Details: [packaging/README.md](packaging/README.md)
 
-Publish a GitHub Release from a single local build:
+Publish a GitHub Release from a single local build (notes from [CHANGELOG.md](CHANGELOG.md); older releases are removed so only the current one stays):
 
 ```bash
+# bump pyproject.toml + add ## [X.Y.Z] in CHANGELOG.md, commit, then:
 ./packaging/release.sh
 ```
 

@@ -58,9 +58,10 @@ systemctl --user enable --now orbiter-tray
 
 Details: [packaging/README.md](packaging/README.md)
 
-GitHub-Release aus einem lokalen Build:
+GitHub-Release aus einem lokalen Build (Notes aus [CHANGELOG.md](CHANGELOG.md); ältere Releases werden gelöscht, nur das aktuelle bleibt):
 
 ```bash
+# pyproject.toml bumpen + ## [X.Y.Z] in CHANGELOG.md, committen, dann:
 ./packaging/release.sh
 ```
 

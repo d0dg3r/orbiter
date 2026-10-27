@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from orbiter.gui.icons import get_icon
-from orbiter.gui.style import make_combo_opaque
+from orbiter.gui.style import apply_tab_page_layout, make_combo_opaque
 from orbiter.i18n import tr
 
 
@@ -23,8 +23,7 @@ class AutoRulesWidget(QWidget):
 
     def init_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(14)
+        apply_tab_page_layout(layout)
 
         top_box = QFrame()
         top_box.setObjectName("capsuleBox")

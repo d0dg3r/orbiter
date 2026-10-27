@@ -218,11 +218,11 @@ QProgressBar::chunk {
 QGroupBox {
     border: 1px solid #202637;
     border-radius: 10px;
-    margin-top: 16px;
-    padding-top: 22px;
-    padding-left: 14px;
-    padding-right: 14px;
-    padding-bottom: 14px;
+    margin-top: 20px;
+    padding-top: 24px;
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: 16px;
     font-weight: 700;
     color: #38bdf8;
     background-color: #141724;
@@ -346,6 +346,27 @@ QMenu::separator {
     margin: 4px 6px;
 }
 """
+
+# Shared tab page rhythm: compact, not cramped (SoT for all settings tabs).
+TAB_PAGE_MARGIN = 16
+TAB_PAGE_SPACING = 18
+GROUP_INNER_SPACING = 10
+GROUP_INNER_MARGINS = (4, 8, 4, 4)
+
+
+def apply_tab_page_layout(layout):
+    """Apply uniform outer margins/spacing to a tab root layout."""
+    layout.setContentsMargins(
+        TAB_PAGE_MARGIN, TAB_PAGE_MARGIN, TAB_PAGE_MARGIN, TAB_PAGE_MARGIN
+    )
+    layout.setSpacing(TAB_PAGE_SPACING)
+
+
+def apply_group_layout(layout):
+    """Apply uniform inner spacing/margins inside a QGroupBox layout."""
+    layout.setSpacing(GROUP_INNER_SPACING)
+    layout.setContentsMargins(*GROUP_INNER_MARGINS)
+
 
 def make_combo_opaque(combo):
     """Avoid QComboBox dropdown transparency glitches on Wayland."""

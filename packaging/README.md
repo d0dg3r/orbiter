@@ -25,15 +25,19 @@ Artefakte landen in `dist/`.
 
 ## GitHub Release (einmal lokal bauen)
 
-Pakete werden **nur lokal** mit nfpm gebaut und als Release-Assets hochgeladen — kein zweites CI-Build:
+Pakete werden **nur lokal** mit nfpm gebaut und als Release-Assets hochgeladen — kein zweites CI-Build.
+
+**Pflicht vor jedem Release:** Abschnitt `## [X.Y.Z] - …` in [`CHANGELOG.md`](../CHANGELOG.md) (SoT für Release-Notes). Fehlt er, bricht `release.sh` ab.
 
 ```bash
+# 1) Version in pyproject.toml bump + CHANGELOG.md Abschnitt schreiben
+# 2) committen, dann:
 ./packaging/release.sh              # Version aus pyproject.toml
 VERSION=0.2.0 ./packaging/release.sh
-./packaging/release.sh --dry-run    # nur bauen, kein Upload
+./packaging/release.sh --dry-run    # nur bauen + Notes preview, kein Upload
 ```
 
-Voraussetzung: `gh` eingeloggt, Remote `github` → `d0dg3r/orbiter`. Skript setzt Tag `vX.Y.Z`, pusht ihn und führt `gh release create` (bzw. `upload --clobber`) aus.
+Voraussetzung: `gh` eingeloggt, Remote `github` → `d0dg3r/orbiter`. Skript setzt Tag `vX.Y.Z`, pusht ihn, erstellt/aktualisiert das Release mit Changelog-Notes und **löscht alle älteren GitHub-Releases** (inkl. Tags) — nur das aktuelle bleibt.
 
 ## Installieren
 

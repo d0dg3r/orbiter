@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QSize
 from orbiter.gui.icons import get_icon
-from orbiter.gui.style import make_combo_opaque
+from orbiter.gui.style import apply_tab_page_layout, make_combo_opaque
 from orbiter.i18n import tr
 
 # Stable IDs only — labels via tr()
@@ -468,8 +468,7 @@ class ButtonEditorWidget(QWidget):
 
     def init_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 10, 4, 4)
-        layout.setSpacing(10)
+        apply_tab_page_layout(layout)
         self.header = QLabel()
         self.header.setStyleSheet("color: #94a3b8; font-weight: 500;")
         layout.addWidget(self.header)
