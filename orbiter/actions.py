@@ -45,7 +45,16 @@ def execute_action(action_def, is_press, vmouse, state_callbacks):
     is_press: bool (True = pressed, False = released)
     vmouse: UInput instance
     state_callbacks: dict of callbacks (e.g. speed_up, toggle_2d)
+
+    Errors are caught here so a bad button entry cannot tear down the device loop.
     """
+    try:
+        _execute_action_inner(action_def, is_press, vmouse, state_callbacks)
+    except Exception as err:
+        print(f"[Orbiter] Action Fehler: {err}")
+
+
+def _execute_action_inner(action_def, is_press, vmouse, state_callbacks):
     atype = action_def.get("type", "none")
     action = action_def.get("action")
 
@@ -76,18 +85,17 @@ def execute_action(action_def, is_press, vmouse, state_callbacks):
 
     elif atype == "hyprland":
         if is_press and action:
-            cmd = f'hyprctl dispatch \'{action}\''
-            try:
-                subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            except Exception as err:
-                print(f"[Orbiter] Hyprland Dispatch Fehler: {err}")
+            # argv only — never shell=True (quotes in presets would break quoting)
+            subprocess.Popen(
+                ["hyprctl", "dispatch", str(action)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
 
     elif atype == "shell":
         if is_press and action:
-            try:
-                subprocess.Popen(action, shell=True)
-            except Exception as err:
-                print(f"[Orbiter] Shell Befehl Fehler: {err}")
+            # Intentional user macro under the same uid as the daemon
+            subprocess.Popen(action, shell=True)
 
     elif atype == "builtin":
         if is_press and action:

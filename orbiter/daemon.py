@@ -142,10 +142,34 @@ class OrbiterDaemon:
         if IPC_SOCKET.exists():
             IPC_SOCKET.unlink()
 
-        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        server.bind(str(IPC_SOCKET))
+        # Restrict create mode before bind so the socket is never briefly wider
+        old_umask = os.umask(0o077)
+        try:
+            server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            server.bind(str(IPC_SOCKET))
+        finally:
+            os.umask(old_umask)
+        try:
+            os.chmod(IPC_SOCKET, 0o600)
+        except OSError:
+            pass
         server.listen(5)
         server.setblocking(False)
+
+        def _peer_uid_ok(conn):
+            """Only accept clients running as the same uid as this daemon."""
+            try:
+                import struct
+                # Linux struct ucred: pid, uid, gid
+                raw = conn.getsockopt(
+                    socket.SOL_SOCKET,
+                    socket.SO_PEERCRED,
+                    struct.calcsize("3i"),
+                )
+                _pid, uid, _gid = struct.unpack("3i", raw)
+                return uid == os.getuid()
+            except Exception:
+                return False
 
         def ipc_worker():
             while self.running:
@@ -153,6 +177,12 @@ class OrbiterDaemon:
                 for s in readable:
                     if s is server:
                         client, _ = server.accept()
+                        if not _peer_uid_ok(client):
+                            try:
+                                client.close()
+                            except Exception:
+                                pass
+                            continue
                         client.setblocking(False)
                         with self.ipc_lock:
                             self.ipc_clients.append(client)
@@ -401,8 +431,11 @@ class OrbiterDaemon:
                                 state_callbacks=state_callbacks
                             )
 
-            except (OSError, Exception) as err:
+            except OSError as err:
                 print(tr("daemon.lost", err=err))
+                with self.axes_lock:
+                    for code in self.axes:
+                        self.axes[code] = 0
                 self.device = None
                 time.sleep(1.0)
 

@@ -134,13 +134,16 @@ def detect_device_model(device=None):
         return DEVICE_MODELS["explorer"]
     elif "enterprise" in dev_name:
         return DEVICE_MODELS["enterprise"]
-    elif "pro" in dev_name and "wireless" not in dev_name and "compact" not in dev_name:
+    elif "pro" in dev_name and "compact" not in dev_name:
+        # SpaceMouse Pro and Pro Wireless (many buttons)
         return DEVICE_MODELS["pro"]
-    elif "compact" in dev_name or "navigator" in dev_name or "wireless" in dev_name:
-        # Navigator and Compact usually have only 2 buttons
+    elif "compact" in dev_name or "navigator" in dev_name:
+        return DEVICE_MODELS["compact"]
+    elif "wireless" in dev_name:
+        # Generic "Wireless" without Pro: use button count
         caps = device.capabilities().get(evdev.ecodes.EV_KEY, [])
-        if len(caps) <= 4:
-            return DEVICE_MODELS["compact"]
+        if len(caps) > 4:
+            return DEVICE_MODELS["pro"]
         return DEVICE_MODELS["compact"]
 
     # 2. Match by reported buttons (capabilities)

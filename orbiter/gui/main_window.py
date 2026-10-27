@@ -516,15 +516,16 @@ class MainWindow(QMainWindow):
         self.tray_profile_menu.addAction(prev_act)
 
     def on_tray_next_profile(self):
-        self.config_mgr.next_profile()
+        # Daemon is SoT for profile stepping — do not also call next_profile() locally
         self.send_ipc_command("NEXT_PROFILE")
+        self.config_mgr.load()
         self.populate_profile_combo()
         self.refresh_all_tabs()
         self.update_tray_profiles()
 
     def on_tray_prev_profile(self):
-        self.config_mgr.prev_profile()
         self.send_ipc_command("PREV_PROFILE")
+        self.config_mgr.load()
         self.populate_profile_combo()
         self.refresh_all_tabs()
         self.update_tray_profiles()

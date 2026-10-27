@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "orbiter"
-version = "0.1.4"
+version = "0.1.5"
 description = "Native Linux- und Wayland-Treiber plus GUI für 3Dconnexion SpaceMouse-Geräte"
 readme = "README.md"
 license = { text = "MIT" }
