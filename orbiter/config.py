@@ -4,6 +4,7 @@ Loads, validates, and saves configuration settings from ~/.config/orbiter/config
 """
 import os
 import json
+import time
 from pathlib import Path
 
 CONFIG_DIR = Path.home() / ".config" / "orbiter"
@@ -115,114 +116,11 @@ DEFAULT_PROFILE_SETTINGS = {
     }
 }
 
-# 2. Personal Hyprland profile (Joe)
-HYPRLAND_JOE_PROFILE = {
-    "deadzone": 18,
-    "base_speed": 0.05,
-    "scroll_deadzone_twist": 90,
-    "scroll_speed": 0.003,
-    "move_cooldown": 0.15,
-    "mode_2d": True,
-    "tilt_blend": 0.4,
-    "lift_scroll_enabled": True,
-    "scroll_deadzone_lift": 90,
-    "buttons": {
-        "259": {
-            "name": "Linke Maustaste",
-            "type": "mouse",
-            "action": "BTN_LEFT",
-            "description": "Standard Linksklick"
-        },
-        "260": {
-            "name": "Rechte Maustaste",
-            "type": "mouse",
-            "action": "BTN_RIGHT",
-            "description": "Standard Rechtsklick"
-        },
-        "261": {
-            "name": "F",
-            "type": "mouse",
-            "action": "BTN_MIDDLE",
-            "description": "Mittlere Maustaste"
-        },
-        "267": {
-            "name": "PANEL",
-            "type": "combo",
-            "action": ["KEY_LEFTMETA", "KEY_D"],
-            "description": "Super + D (App-Starter / Rofi)"
-        },
-        "258": {
-            "name": "T",
-            "type": "combo",
-            "action": ["KEY_LEFTMETA", "KEY_U"],
-            "description": "Super + U (Ablage / Special Workspace)"
-        },
-        "256": {
-            "name": "1",
-            "type": "hyprland",
-            "action": "hl.dsp.focus({ workspace = 'e-1' })",
-            "description": "Workspace LINKS"
-        },
-        "257": {
-            "name": "2",
-            "type": "hyprland",
-            "action": "hl.dsp.focus({ workspace = 'e+1' })",
-            "description": "Workspace RECHTS"
-        },
-        "268": {
-            "name": "+",
-            "type": "builtin",
-            "action": "speed_up",
-            "description": "Zeiger schneller (+25%)"
-        },
-        "269": {
-            "name": "-",
-            "type": "builtin",
-            "action": "speed_down",
-            "description": "Zeiger langsamer (-20%)"
-        },
-        "266": {
-            "name": "FIT",
-            "type": "key",
-            "action": "KEY_F11",
-            "description": "Vollbild an/aus (F11)"
-        },
-        "270": {
-            "name": "2D",
-            "type": "builtin",
-            "action": "toggle_2d",
-            "description": "2D-Präzisionsmodus Toggle"
-        },
-        "262": {
-            "name": "ESC",
-            "type": "key",
-            "action": "KEY_ESC",
-            "description": "Escape"
-        },
-        "263": {
-            "name": "ALT",
-            "type": "key",
-            "action": "KEY_LEFTALT",
-            "description": "Alt-Taste"
-        },
-        "264": {
-            "name": "SHIFT",
-            "type": "key",
-            "action": "KEY_LEFTSHIFT",
-            "description": "Shift-Taste"
-        },
-        "265": {
-            "name": "CTRL",
-            "type": "builtin",
-            "action": "next_profile",
-            "description": "Nächstes Profil aktivieren"
-        }
-    }
-}
+# Shipped defaults: Standard, CAD / 3D, Browser / Medien only.
+# Personal profiles (e.g. Hyprland / Joe) live only in the user's config.json.
 
 DEFAULT_PROFILES = {
     "Standard": DEFAULT_PROFILE_SETTINGS,
-    "Hyprland / Joe": HYPRLAND_JOE_PROFILE,
     "CAD / 3D": {
         "deadzone": 16,
         "base_speed": 0.055,
@@ -385,7 +283,6 @@ DEFAULT_CONFIG = {
     "auto_rules": {
         "CAD / 3D": ["freecad", "org.freecadweb.freecad", "blender", "gimp", "inkscape", "kicad", "prusa-slicer", "bambu-studio"],
         "Browser / Medien": ["chromium", "firefox", "brave-browser", "google-chrome", "zen", "spotify", "vlc"],
-        "Hyprland / Joe": []
     },
     "profiles": DEFAULT_PROFILES
 }
@@ -396,6 +293,34 @@ PROFILE_SETTINGS_KEYS = {
     "tilt_blend", "lift_scroll_enabled", "scroll_deadzone_lift",
     "buttons",
 }
+
+# Reject giant imports before json.load (DoS / memory)
+MAX_CONFIG_BYTES = 2 * 1024 * 1024
+
+
+def _write_json_secure(path: Path, data: dict):
+    """Atomic write with mode 0600 (config may contain shell actions)."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_file = path.with_suffix(path.suffix + ".tmp")
+    fd = os.open(
+        str(tmp_file),
+        os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+        0o600,
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+            f.write("\n")
+        os.chmod(tmp_file, 0o600)
+        tmp_file.replace(path)
+    except Exception:
+        try:
+            tmp_file.unlink(missing_ok=True)
+        except Exception:
+            pass
+        raise
+
 
 class ConfigManager:
     def __init__(self, path=CONFIG_FILE):
@@ -413,9 +338,14 @@ class ConfigManager:
             return self.config
 
         try:
+            file_size = self.path.stat().st_size
+            if file_size > MAX_CONFIG_BYTES:
+                raise ValueError(f"Config too large ({file_size} bytes)")
+
             with open(self.path, "r", encoding="utf-8") as f:
                 self.config = json.load(f)
             self.last_mtime = self.path.stat().st_mtime
+            migrated = False
 
             # Migration: legacy config.json without "profiles"
             if "profiles" not in self.config or not isinstance(self.config["profiles"], dict):
@@ -435,27 +365,20 @@ class ConfigManager:
                 self.config["profiles"] = {
                     "Standard": standard_profile
                 }
-                # Extra sample profiles when missing (handled below)
-            # Ensure default profiles exist (incl. Hyprland / Joe)
-            profiles = self.config.setdefault("profiles", {})
-            if "Hyprland / Joe" not in profiles:
-                std_btn = profiles.get("Standard", {}).get("buttons", {})
-                if any(b.get("type") == "hyprland" for b in std_btn.values()):
-                    profiles["Hyprland / Joe"] = json.loads(json.dumps(profiles["Standard"]))
-                    profiles["Standard"] = json.loads(json.dumps(DEFAULT_PROFILE_SETTINGS))
-                    if self.config.get("active_profile") == "Standard":
-                        self.config["active_profile"] = "Hyprland / Joe"
-                else:
-                    profiles["Hyprland / Joe"] = json.loads(json.dumps(HYPRLAND_JOE_PROFILE))
+                migrated = True
 
+            # Ensure shipped default profiles exist (never remove user-only profiles)
+            profiles = self.config.setdefault("profiles", {})
             for prof_name, prof_data in DEFAULT_PROFILES.items():
                 if prof_name not in profiles:
                     profiles[prof_name] = json.loads(json.dumps(prof_data))
+                    migrated = True
 
             # Ensure active_profile is valid
             if "active_profile" not in self.config or self.config["active_profile"] not in self.config["profiles"]:
                 first_prof = next(iter(self.config["profiles"].keys()), "Standard")
                 self.config["active_profile"] = first_prof
+                migrated = True
 
             # Fill missing profile fields from defaults
             for p_name, p_data in self.config["profiles"].items():
@@ -464,12 +387,19 @@ class ConfigManager:
                 for k, v in DEFAULT_PROFILE_SETTINGS.items():
                     if k not in p_data:
                         p_data[k] = json.loads(json.dumps(v))
+                        migrated = True
 
             self._sync_active_profile_to_root()
-            self.save()
+            if migrated:
+                self.save()
 
         except Exception as e:
             print(f"[Config] Fehler beim Laden ({e}), lade Standardwerte.")
+            # Pin mtime so the 60 Hz daemon ticker does not reload every frame
+            try:
+                self.last_mtime = self.path.stat().st_mtime if self.path.exists() else time.time()
+            except Exception:
+                self.last_mtime = time.time()
             self.config = json.loads(json.dumps(DEFAULT_CONFIG))
             self._sync_active_profile_to_root()
         return self.config
@@ -493,19 +423,14 @@ class ConfigManager:
     def save(self):
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         self._sync_active_profile_to_root()
-        tmp_file = self.path.with_suffix(".tmp")
-        with open(tmp_file, "w", encoding="utf-8") as f:
-            json.dump(self.config, f, indent=4, ensure_ascii=False)
-        tmp_file.replace(self.path)
+        _write_json_secure(self.path, self.config)
         self.last_mtime = self.path.stat().st_mtime
 
     def export_config(self, path):
         """Write current config as pretty JSON to path."""
         path = Path(path).expanduser()
-        path.parent.mkdir(parents=True, exist_ok=True)
         self._sync_active_profile_to_root()
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(self.config, f, indent=4, ensure_ascii=False)
+        _write_json_secure(path, self.config)
         return path
 
     def import_config(self, path, backup=True):
@@ -516,6 +441,9 @@ class ConfigManager:
         path = Path(path).expanduser()
         if not path.is_file():
             raise FileNotFoundError(str(path))
+        file_size = path.stat().st_size
+        if file_size > MAX_CONFIG_BYTES:
+            raise ValueError(f"Config too large ({file_size} bytes, max {MAX_CONFIG_BYTES})")
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         if not isinstance(data, dict):
@@ -531,7 +459,14 @@ class ConfigManager:
             from datetime import datetime
             stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             bak = self.path.with_name(f"config.json.bak-{stamp}")
-            bak.write_text(self.path.read_text(encoding="utf-8"), encoding="utf-8")
+            # Raw copy preserves current file even if it is not valid JSON
+            data_bytes = self.path.read_bytes()
+            fd = os.open(str(bak), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            try:
+                os.write(fd, data_bytes)
+            finally:
+                os.close(fd)
+            os.chmod(bak, 0o600)
 
         self.config = data
         self._sync_active_profile_to_root()
@@ -643,7 +578,6 @@ class ConfigManager:
         return self.config.setdefault("auto_rules", {
             "CAD / 3D": ["freecad", "org.freecadweb.freecad", "blender", "gimp", "inkscape", "kicad", "prusa-slicer", "bambu-studio"],
             "Browser / Medien": ["chromium", "firefox", "brave-browser", "google-chrome", "zen", "spotify", "vlc"],
-            "Hyprland / Joe": []
         })
 
     def is_auto_switch_enabled(self):
