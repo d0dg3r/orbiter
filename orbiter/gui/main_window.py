@@ -12,11 +12,12 @@ from PyQt6.QtWidgets import (
     QPushButton, QMessageBox, QSystemTrayIcon, QMenu, QApplication,
     QComboBox, QInputDialog
 )
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import QTimer, Qt, QSize
 from PyQt6.QtGui import QIcon, QAction
 
 from orbiter.config import ConfigManager, IPC_SOCKET
 from orbiter.gui.style import DARK_THEME
+from orbiter.gui.icons import get_icon
 from orbiter.gui.widgets.button_editor import ButtonEditorWidget
 from orbiter.gui.widgets.settings_tab import SettingsTabWidget
 from orbiter.gui.widgets.live_monitor import LiveMonitorWidget
@@ -29,7 +30,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.config_mgr = ConfigManager()
         self.setWindowTitle("Orbiter — 3Dconnexion Controller")
-        self.resize(800, 620)
+        self.resize(840, 640)
         self.setStyleSheet(DARK_THEME)
 
         self.app_icon = QIcon(str(ICON_PATH))
@@ -54,15 +55,22 @@ class MainWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         main_layout = QVBoxLayout(central)
-        main_layout.setContentsMargins(16, 16, 16, 16)
-        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(18, 18, 18, 18)
+        main_layout.setSpacing(14)
 
         # Header
         header = QHBoxLayout()
+        header.setSpacing(12)
+
+        # App Logo Icon + Titles
+        logo_lbl = QLabel()
+        logo_lbl.setPixmap(self.app_icon.pixmap(36, 36))
+        header.addWidget(logo_lbl)
+
         title_box = QVBoxLayout()
         title = QLabel("ORBITER")
         title.setStyleSheet("font-size: 20px; font-weight: 800; color: #38bdf8; letter-spacing: 1px;")
-        subtitle = QLabel("3Dconnexion SpaceMouse Bridge & Linux Driver")
+        subtitle = QLabel("3Dconnexion SpaceMouse Driver & Linux Bridge")
         subtitle.setStyleSheet("color: #64748b; font-size: 11px;")
         title_box.addWidget(title)
         title_box.addWidget(subtitle)
@@ -71,47 +79,58 @@ class MainWindow(QMainWindow):
         header.addStretch()
 
         # 2D Toggle Quick Button
-        self.toggle_2d_btn = QPushButton("2D-Modus: AN")
+        self.toggle_2d_btn = QPushButton("2D-Präzision: AN")
         self.toggle_2d_btn.setObjectName("secondaryBtn")
+        self.toggle_2d_btn.setIcon(get_icon("target", color="#38bdf8", size=16))
         self.toggle_2d_btn.clicked.connect(self.toggle_2d_mode)
         header.addWidget(self.toggle_2d_btn)
 
         # Status Badge
-        self.status_badge = QLabel("Prüfe Verbindung...")
-        self.status_badge.setStyleSheet("background-color: #1e212b; padding: 6px 12px; border-radius: 6px; font-weight: 600; color: #94a3b8;")
+        self.status_badge = QLabel("Verbindung wird geprüft...")
+        self.status_badge.setStyleSheet("background-color: #1a1e2b; padding: 7px 14px; border-radius: 8px; font-weight: 600; color: #94a3b8; border: 1px solid #282f42;")
         header.addWidget(self.status_badge)
 
         main_layout.addLayout(header)
 
         # Profile Toolbar
         prof_bar = QHBoxLayout()
-        prof_lbl = QLabel("📁 Profil:")
+        prof_bar.setSpacing(8)
+
+        prof_icon_lbl = QLabel()
+        prof_icon_lbl.setPixmap(get_icon("layers", color="#38bdf8", size=18).pixmap(18, 18))
+        prof_bar.addWidget(prof_icon_lbl)
+
+        prof_lbl = QLabel("Profil:")
         prof_lbl.setStyleSheet("font-weight: 700; color: #93c5fd; font-size: 13px;")
         prof_bar.addWidget(prof_lbl)
 
         self.profile_combo = QComboBox()
-        self.profile_combo.setMinimumWidth(180)
+        self.profile_combo.setMinimumWidth(190)
         self.populate_profile_combo()
         self.profile_combo.currentTextChanged.connect(self.on_profile_combo_changed)
         prof_bar.addWidget(self.profile_combo)
 
-        self.new_prof_btn = QPushButton("+ Neu")
+        self.new_prof_btn = QPushButton("Neu")
         self.new_prof_btn.setObjectName("secondaryBtn")
+        self.new_prof_btn.setIcon(get_icon("plus", color="#38bdf8", size=14))
         self.new_prof_btn.clicked.connect(self.create_new_profile)
         prof_bar.addWidget(self.new_prof_btn)
 
-        self.copy_prof_btn = QPushButton("📋 Duplizieren")
+        self.copy_prof_btn = QPushButton("Duplizieren")
         self.copy_prof_btn.setObjectName("secondaryBtn")
+        self.copy_prof_btn.setIcon(get_icon("copy", color="#94a3b8", size=14))
         self.copy_prof_btn.clicked.connect(self.copy_current_profile)
         prof_bar.addWidget(self.copy_prof_btn)
 
-        self.rename_prof_btn = QPushButton("✏️ Umbenennen")
+        self.rename_prof_btn = QPushButton("Umbenennen")
         self.rename_prof_btn.setObjectName("secondaryBtn")
+        self.rename_prof_btn.setIcon(get_icon("edit", color="#94a3b8", size=14))
         self.rename_prof_btn.clicked.connect(self.rename_current_profile)
         prof_bar.addWidget(self.rename_prof_btn)
 
-        self.del_prof_btn = QPushButton("🗑️ Löschen")
-        self.del_prof_btn.setObjectName("secondaryBtn")
+        self.del_prof_btn = QPushButton("Löschen")
+        self.del_prof_btn.setObjectName("dangerBtn")
+        self.del_prof_btn.setIcon(get_icon("trash", color="#f87171", size=14))
         self.del_prof_btn.clicked.connect(self.delete_current_profile)
         prof_bar.addWidget(self.del_prof_btn)
 
@@ -120,13 +139,15 @@ class MainWindow(QMainWindow):
 
         # Tabs
         self.tabs = QTabWidget()
+        self.tabs.setIconSize(QSize(18, 18))
+
         self.btn_tab = ButtonEditorWidget(self.config_mgr, self)
         self.settings_tab = SettingsTabWidget(self.config_mgr, self)
         self.monitor_tab = LiveMonitorWidget(self)
 
-        self.tabs.addTab(self.btn_tab, "🎮 Tastenbelegung")
-        self.tabs.addTab(self.settings_tab, "⚙️ Empfindlichkeit & Kurven")
-        self.tabs.addTab(self.monitor_tab, "📡 Live Hardware-Tester")
+        self.tabs.addTab(self.btn_tab, get_icon("keyboard", color="#38bdf8", active_color="#ffffff", size=18), "Tastenbelegung")
+        self.tabs.addTab(self.settings_tab, get_icon("sliders", color="#38bdf8", active_color="#ffffff", size=18), "Empfindlichkeit & Kurven")
+        self.tabs.addTab(self.monitor_tab, get_icon("activity", color="#38bdf8", active_color="#ffffff", size=18), "Live Hardware-Tester")
 
         main_layout.addWidget(self.tabs)
 
@@ -140,10 +161,12 @@ class MainWindow(QMainWindow):
 
         restart_btn = QPushButton("Dienst neustarten")
         restart_btn.setObjectName("secondaryBtn")
+        restart_btn.setIcon(get_icon("refresh", color="#94a3b8", size=14))
         restart_btn.clicked.connect(self.restart_daemon)
         footer.addWidget(restart_btn)
 
         hide_btn = QPushButton("Ins Tray minimieren")
+        hide_btn.setIcon(get_icon("minimize", color="#ffffff", size=14))
         hide_btn.clicked.connect(self.hide)
         footer.addWidget(hide_btn)
 
@@ -155,7 +178,7 @@ class MainWindow(QMainWindow):
         profiles = sorted(self.config_mgr.get_profiles().keys())
         active = self.config_mgr.get_active_profile_name()
         for p in profiles:
-            self.profile_combo.addItem(p)
+            self.profile_combo.addItem(get_icon("layers", color="#38bdf8", size=14), p)
         idx = self.profile_combo.findText(active)
         if idx >= 0:
             self.profile_combo.setCurrentIndex(idx)
@@ -169,7 +192,6 @@ class MainWindow(QMainWindow):
 
     def switch_to_profile(self, name):
         self.config_mgr.set_active_profile(name)
-        # IPC an Daemon
         self.send_ipc_command(f"SWITCH_PROFILE {name}")
         self.refresh_all_tabs()
         self.update_tray_profiles()
@@ -179,7 +201,7 @@ class MainWindow(QMainWindow):
         self.settings_tab.load_settings()
 
     def create_new_profile(self):
-        name, ok = QInputDialog.getText(self, "Neues Profil erstellen", "Name des neuen Profils:")
+        name, ok = QInputDialog.getText(self, "Neues Profil", "Name für das neue Profil:")
         if ok and name.strip():
             clean_name = name.strip()
             res = self.config_mgr.create_profile(clean_name)
@@ -241,32 +263,33 @@ class MainWindow(QMainWindow):
         self.tray_menu = QMenu()
         self.tray_menu.setStyleSheet(DARK_THEME)
 
-        self.tray_status_action = QAction("● Orbiter", self)
+        self.tray_status_action = QAction(self.app_icon, "Orbiter", self)
         self.tray_status_action.setEnabled(False)
         self.tray_menu.addAction(self.tray_status_action)
         self.tray_menu.addSeparator()
 
         # Profil-Untermenü
-        self.tray_profile_menu = QMenu("📁 Profil wechseln", self.tray_menu)
+        self.tray_profile_menu = QMenu("Profil wechseln", self.tray_menu)
+        self.tray_profile_menu.setIcon(get_icon("layers", color="#38bdf8", size=16))
         self.tray_profile_menu.setStyleSheet(DARK_THEME)
         self.tray_menu.addMenu(self.tray_profile_menu)
         self.update_tray_profiles()
 
-        self.tray_2d_action = QAction("2D-Präzisionsmodus umschalten", self)
+        self.tray_2d_action = QAction(get_icon("target", color="#38bdf8", size=16), "2D-Präzisionsmodus umschalten", self)
         self.tray_2d_action.triggered.connect(self.toggle_2d_mode)
         self.tray_menu.addAction(self.tray_2d_action)
 
-        open_action = QAction("⚙️ Einstellungen öffnen", self)
+        open_action = QAction(get_icon("settings", color="#94a3b8", size=16), "Einstellungen öffnen", self)
         open_action.triggered.connect(self.show_and_activate)
         self.tray_menu.addAction(open_action)
 
-        restart_action = QAction("🔄 Dienst neustarten", self)
+        restart_action = QAction(get_icon("refresh", color="#94a3b8", size=16), "Dienst neustarten", self)
         restart_action.triggered.connect(self.restart_daemon)
         self.tray_menu.addAction(restart_action)
 
         self.tray_menu.addSeparator()
 
-        quit_action = QAction("❌ Beenden", self)
+        quit_action = QAction(get_icon("power", color="#f87171", size=16), "Beenden", self)
         quit_action.triggered.connect(QApplication.instance().quit)
         self.tray_menu.addAction(quit_action)
 
@@ -280,29 +303,31 @@ class MainWindow(QMainWindow):
         active = self.config_mgr.get_active_profile_name()
 
         for p in profiles:
-            prefix = "✓ " if p == active else "   "
-            act = QAction(f"{prefix}{p}", self)
+            if p == active:
+                act = QAction(get_icon("check", color="#38bdf8", size=14), p, self)
+            else:
+                act = QAction(get_icon("layers", color="#64748b", size=14), p, self)
             act.triggered.connect(lambda checked, name=p: self.switch_to_profile(name))
             self.tray_profile_menu.addAction(act)
 
         self.tray_profile_menu.addSeparator()
-        next_act = QAction("➡️ Nächstes Profil", self)
+        next_act = QAction(get_icon("arrow-right", color="#38bdf8", size=14), "Nächstes Profil", self)
         next_act.triggered.connect(self.on_tray_next_profile)
         self.tray_profile_menu.addAction(next_act)
 
-        prev_act = QAction("⬅️ Vorheriges Profil", self)
+        prev_act = QAction(get_icon("arrow-left", color="#38bdf8", size=14), "Vorheriges Profil", self)
         prev_act.triggered.connect(self.on_tray_prev_profile)
         self.tray_profile_menu.addAction(prev_act)
 
     def on_tray_next_profile(self):
-        new_prof = self.config_mgr.next_profile()
+        self.config_mgr.next_profile()
         self.send_ipc_command("NEXT_PROFILE")
         self.populate_profile_combo()
         self.refresh_all_tabs()
         self.update_tray_profiles()
 
     def on_tray_prev_profile(self):
-        new_prof = self.config_mgr.prev_profile()
+        self.config_mgr.prev_profile()
         self.send_ipc_command("PREV_PROFILE")
         self.populate_profile_combo()
         self.refresh_all_tabs()
@@ -342,7 +367,7 @@ class MainWindow(QMainWindow):
     def update_daemon_status(self):
         if not IPC_SOCKET.exists():
             self.status_badge.setText("● Dienst offline")
-            self.status_badge.setStyleSheet("background-color: #3f1d1d; color: #f87171; padding: 6px 12px; border-radius: 6px; font-weight: 600;")
+            self.status_badge.setStyleSheet("background-color: #2b1717; color: #f87171; padding: 7px 14px; border-radius: 8px; font-weight: 600; border: 1px solid #4a2020;")
             self.tray_status_action.setText("● Dienst offline")
             return
 
@@ -354,22 +379,24 @@ class MainWindow(QMainWindow):
             status = json.loads(resp)
             if status.get("connected"):
                 self.connected_device = status.get("device_name", "SpaceMouse")
-                self.status_badge.setText(f"● {self.connected_device} verbunden")
-                self.status_badge.setStyleSheet("background-color: #14532d; color: #4ade80; padding: 6px 12px; border-radius: 6px; font-weight: 600;")
+                self.status_badge.setText(f"● {self.connected_device}")
+                self.status_badge.setStyleSheet("background-color: #12281e; color: #4ade80; padding: 7px 14px; border-radius: 8px; font-weight: 600; border: 1px solid #1a4230;")
                 self.tray_status_action.setText(f"● {self.connected_device}")
             else:
                 self.status_badge.setText("○ Kein Gerät gefunden")
-                self.status_badge.setStyleSheet("background-color: #451a03; color: #fb923c; padding: 6px 12px; border-radius: 6px; font-weight: 600;")
+                self.status_badge.setStyleSheet("background-color: #2b1f13; color: #fb923c; padding: 7px 14px; border-radius: 8px; font-weight: 600; border: 1px solid #4a341e;")
                 self.tray_status_action.setText("○ Kein Gerät verbunden")
 
             self.is_2d = status.get("mode_2d", True)
-            self.toggle_2d_btn.setText(f"2D-Modus: {'AN' if self.is_2d else 'AUS'}")
+            self.toggle_2d_btn.setText(f"2D-Präzision: {'AN' if self.is_2d else 'AUS'}")
             if self.is_2d:
-                self.toggle_2d_btn.setStyleSheet("background-color: #1e3a8a; color: #93c5fd;")
-                self.tray_2d_action.setText("✓ 2D-Präzisionsmodus (Aktiv)")
+                self.toggle_2d_btn.setStyleSheet("background-color: #1e3a8a; color: #93c5fd; border: 1px solid #2563eb;")
+                self.tray_2d_action.setText("2D-Präzisionsmodus (Aktiv)")
+                self.tray_2d_action.setIcon(get_icon("check", color="#38bdf8", size=16))
             else:
-                self.toggle_2d_btn.setStyleSheet("background-color: #272c3a; color: #94a3b8;")
-                self.tray_2d_action.setText("  2D-Präzisionsmodus (Inaktiv)")
+                self.toggle_2d_btn.setStyleSheet("background-color: #1a1f2d; color: #94a3b8; border: 1px solid #293147;")
+                self.tray_2d_action.setText("2D-Präzisionsmodus (Inaktiv)")
+                self.tray_2d_action.setIcon(get_icon("target", color="#64748b", size=16))
 
             # Externer Profilwechsel über Hardware-Taste erkennen
             daemon_active_prof = status.get("active_profile")
@@ -384,7 +411,7 @@ class MainWindow(QMainWindow):
 
         except Exception:
             self.status_badge.setText("● Dienst antwortet nicht")
-            self.status_badge.setStyleSheet("background-color: #3f1d1d; color: #f87171; padding: 6px 12px; border-radius: 6px; font-weight: 600;")
+            self.status_badge.setStyleSheet("background-color: #2b1717; color: #f87171; padding: 7px 14px; border-radius: 8px; font-weight: 600; border: 1px solid #4a2020;")
             self.tray_status_action.setText("● Dienst antwortet nicht")
 
     def toggle_2d_mode(self):
@@ -395,6 +422,6 @@ class MainWindow(QMainWindow):
         try:
             subprocess.run(["systemctl", "--user", "restart", "orbiter"], check=False)
             self.update_daemon_status()
-            QMessageBox.information(self, "Orbiter", "Dienst wurde neu gestartet.")
+            QMessageBox.information(self, "Orbiter", "Dienst wurde erfolgreich neu gestartet.")
         except Exception as e:
             QMessageBox.warning(self, "Orbiter", f"Konnte Dienst nicht neu starten: {e}")

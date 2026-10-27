@@ -4,9 +4,10 @@ Button Mapping Editor Widget & Dialog for Orbiter
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QDialog, QLabel, QComboBox, QLineEdit, QHeaderView,
-    QMessageBox, QStackedWidget, QCheckBox, QGroupBox, QFrame
+    QMessageBox, QStackedWidget, QCheckBox, QFrame
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSize
+from orbiter.gui.icons import get_icon
 
 MOUSE_OPTIONS = [
     ("BTN_LEFT", "Linksklick (Standard)"),
@@ -54,10 +55,8 @@ COMMON_KEYS = [
     ("KEY_LEFTSHIFT", "Umschalt / Shift"),
     ("KEY_LEFTMETA", "Super / Windows-Taste"),
 ]
-# A-Z hinzufügen
 for ch in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
     COMMON_KEYS.append((f"KEY_{ch}", f"Taste '{ch}'"))
-# 0-9 hinzufügen
 for num in "0123456789":
     COMMON_KEYS.append((f"KEY_{num}", f"Ziffer '{num}'"))
 
@@ -81,34 +80,38 @@ class ButtonEditDialog(QDialog):
         self.btn_data = dict(btn_data)
         self.config_mgr = config_mgr
         self.setWindowTitle(f"Taste konfigurieren: {self.btn_data.get('name', f'Taste {code}')}")
-        self.setFixedSize(520, 420)
+        self.setFixedSize(540, 440)
         self.init_ui()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
-        layout.setSpacing(12)
+        layout.setSpacing(14)
+        layout.setContentsMargins(20, 20, 20, 20)
 
         # Name / Label
         name_box = QHBoxLayout()
         name_lbl = QLabel("Tasten-Bezeichnung:")
-        name_lbl.setFixedWidth(130)
+        name_lbl.setFixedWidth(140)
+        name_lbl.setStyleSheet("color: #94a3b8; font-weight: 600;")
         self.name_edit = QLineEdit(self.btn_data.get("name", f"Taste {self.code}"))
         name_box.addWidget(name_lbl)
         name_box.addWidget(self.name_edit)
         layout.addLayout(name_box)
 
-        # Typ Dropdown
+        # Typ Dropdown mit Icons
         type_box = QHBoxLayout()
         type_lbl = QLabel("Aktions-Kategorie:")
-        type_lbl.setFixedWidth(130)
+        type_lbl.setFixedWidth(140)
+        type_lbl.setStyleSheet("color: #94a3b8; font-weight: 600;")
         self.type_combo = QComboBox()
-        self.type_combo.addItem("🖱️ Mausklick", "mouse")
-        self.type_combo.addItem("⚙️ System / Intern & Profile", "builtin")
-        self.type_combo.addItem("⌨️ Einzelne Taste (z. B. F11, ESC)", "key")
-        self.type_combo.addItem("⚡ Tastenkombination (z. B. Super+D)", "combo")
-        self.type_combo.addItem("🪟 Hyprland Dispatcher", "hyprland")
-        self.type_combo.addItem("💻 Shell-Befehl ausführen", "shell")
-        self.type_combo.addItem("🚫 Deaktiviert (Keine Aktion)", "none")
+        self.type_combo.setIconSize(QSize(16, 16))
+        self.type_combo.addItem(get_icon("mouse", color="#38bdf8", size=16), "Mausklick", "mouse")
+        self.type_combo.addItem(get_icon("cpu", color="#38bdf8", size=16), "System / Intern & Profile", "builtin")
+        self.type_combo.addItem(get_icon("keyboard", color="#38bdf8", size=16), "Einzelne Taste (z. B. F11, ESC)", "key")
+        self.type_combo.addItem(get_icon("command", color="#38bdf8", size=16), "Tastenkombination (z. B. Super+D)", "combo")
+        self.type_combo.addItem(get_icon("layout", color="#38bdf8", size=16), "Hyprland Dispatcher", "hyprland")
+        self.type_combo.addItem(get_icon("terminal", color="#38bdf8", size=16), "Shell-Befehl ausführen", "shell")
+        self.type_combo.addItem(get_icon("ban", color="#f87171", size=16), "Deaktiviert (Keine Aktion)", "none")
         type_box.addWidget(type_lbl)
         type_box.addWidget(self.type_combo)
         layout.addLayout(type_box)
@@ -117,7 +120,7 @@ class ButtonEditDialog(QDialog):
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setFrameShadow(QFrame.Shadow.Sunken)
-        line.setStyleSheet("color: #2b3042;")
+        line.setStyleSheet("color: #242a3c;")
         layout.addWidget(line)
 
         # Stacked Widget für die verschiedenen Typen
@@ -128,8 +131,9 @@ class ButtonEditDialog(QDialog):
         l_mouse = QVBoxLayout(p_mouse)
         l_mouse.addWidget(QLabel("Wähle die gewünschte Maustasten-Aktion:"))
         self.mouse_combo = QComboBox()
+        self.mouse_combo.setIconSize(QSize(16, 16))
         for code, label in MOUSE_OPTIONS:
-            self.mouse_combo.addItem(f"{label}  ({code})", code)
+            self.mouse_combo.addItem(get_icon("mouse", color="#94a3b8", size=16), f"{label} ({code})", code)
         l_mouse.addWidget(self.mouse_combo)
         l_mouse.addStretch()
         self.stack.addWidget(p_mouse)
@@ -137,22 +141,21 @@ class ButtonEditDialog(QDialog):
         # Page 1: System / Intern & Profile
         p_builtin = QWidget()
         l_builtin = QVBoxLayout(p_builtin)
-        l_builtin.addWidget(QLabel("Wähle eine interne Orbiter-Funktion oder ein Profil zum Umschalten:"))
+        l_builtin.addWidget(QLabel("Wähle eine interne Orbiter-Funktion oder ein Zielprofil:"))
         self.builtin_combo = QComboBox()
-        # Standard Aktionen
-        self.builtin_combo.addItem("⚡ Zeiger schneller (+25%)", "speed_up")
-        self.builtin_combo.addItem("🐢 Zeiger langsamer (-20%)", "speed_down")
-        self.builtin_combo.addItem("🎯 2D-Präzisionsmodus umschalten", "toggle_2d")
-        self.builtin_combo.addItem("📁 Nächstes Profil (Durchschalten)", "next_profile")
-        self.builtin_combo.addItem("📁 Vorheriges Profil (Zurückschalten)", "prev_profile")
+        self.builtin_combo.setIconSize(QSize(16, 16))
+        self.builtin_combo.addItem(get_icon("trending-up", color="#38bdf8", size=16), "Zeiger schneller (+25%)", "speed_up")
+        self.builtin_combo.addItem(get_icon("trending-down", color="#38bdf8", size=16), "Zeiger langsamer (-20%)", "speed_down")
+        self.builtin_combo.addItem(get_icon("target", color="#38bdf8", size=16), "2D-Präzisionsmodus umschalten", "toggle_2d")
+        self.builtin_combo.addItem(get_icon("arrow-right", color="#38bdf8", size=16), "Nächstes Profil (Durchschalten)", "next_profile")
+        self.builtin_combo.addItem(get_icon("arrow-left", color="#38bdf8", size=16), "Vorheriges Profil (Zurückschalten)", "prev_profile")
 
-        # Dynamisch alle Profile auflisten
         profiles = self.config_mgr.get_profiles() if self.config_mgr else {}
         for p_name in sorted(profiles.keys()):
-            self.builtin_combo.addItem(f"📁 Direkt zu Profil: '{p_name}'", f"profile:{p_name}")
+            self.builtin_combo.addItem(get_icon("layers", color="#93c5fd", size=16), f"Direkt zu Profil: '{p_name}'", f"profile:{p_name}")
 
         l_builtin.addWidget(self.builtin_combo)
-        builtin_hint = QLabel("Tipp: Du kannst Profile mit 'Nächstes Profil' nacheinander durchblättern oder direkt anwählen.")
+        builtin_hint = QLabel("Hinweis: Mit 'Nächstes Profil' kannst du per Taste durch alle konfigurierten Profile blättern.")
         builtin_hint.setStyleSheet("color: #64748b; font-size: 11px;")
         builtin_hint.setWordWrap(True)
         l_builtin.addWidget(builtin_hint)
@@ -162,11 +165,12 @@ class ButtonEditDialog(QDialog):
         # Page 2: Einzelne Taste
         p_key = QWidget()
         l_key = QVBoxLayout(p_key)
-        l_key.addWidget(QLabel("Wähle eine Taste aus der Liste oder tippe einen Tastencode ein:"))
+        l_key.addWidget(QLabel("Wähle eine Taste aus der Liste oder gib einen evdev-Code ein:"))
         self.key_combo = QComboBox()
+        self.key_combo.setIconSize(QSize(16, 16))
         self.key_combo.setEditable(True)
         for code, label in COMMON_KEYS:
-            self.key_combo.addItem(f"{label}  ({code})", code)
+            self.key_combo.addItem(get_icon("keyboard", color="#94a3b8", size=16), f"{label} ({code})", code)
         l_key.addWidget(self.key_combo)
         l_key.addStretch()
         self.stack.addWidget(p_key)
@@ -174,7 +178,7 @@ class ButtonEditDialog(QDialog):
         # Page 3: Tastenkombination (Combo)
         p_combo = QWidget()
         l_combo = QVBoxLayout(p_combo)
-        l_combo.addWidget(QLabel("Wähle die Sondertasten (Modifier) und die Zieltaste:"))
+        l_combo.addWidget(QLabel("Wähle Modifikatoren und die gewünschte Zieltaste:"))
 
         mod_box = QHBoxLayout()
         self.mod_ctrl = QCheckBox("Strg (Ctrl)")
@@ -190,15 +194,16 @@ class ButtonEditDialog(QDialog):
         key_target_box = QHBoxLayout()
         key_target_box.addWidget(QLabel("Zieltaste:"))
         self.combo_target_key = QComboBox()
+        self.combo_target_key.setIconSize(QSize(16, 16))
         self.combo_target_key.setEditable(True)
         for code, label in COMMON_KEYS:
-            self.combo_target_key.addItem(f"{label} ({code})", code)
+            self.combo_target_key.addItem(get_icon("keyboard", color="#94a3b8", size=16), f"{label} ({code})", code)
         key_target_box.addWidget(self.combo_target_key)
         l_combo.addLayout(key_target_box)
 
         # Combo Vorschau
         preview_box = QHBoxLayout()
-        preview_box.addWidget(QLabel("Vorschau-Aktion:"))
+        preview_box.addWidget(QLabel("Kombination:"))
         self.combo_preview_lbl = QLabel("")
         self.combo_preview_lbl.setStyleSheet("color: #38bdf8; font-weight: bold;")
         preview_box.addWidget(self.combo_preview_lbl)
@@ -218,11 +223,12 @@ class ButtonEditDialog(QDialog):
         # Page 4: Hyprland Dispatcher
         p_hypr = QWidget()
         l_hypr = QVBoxLayout(p_hypr)
-        l_hypr.addWidget(QLabel("Wähle einen Hyprland-Befehl oder gib einen eigenen Dispatcher ein:"))
+        l_hypr.addWidget(QLabel("Wähle eine Hyprland-Aktion oder gib einen Dispatcher ein:"))
         self.hypr_combo = QComboBox()
+        self.hypr_combo.setIconSize(QSize(16, 16))
         self.hypr_combo.setEditable(True)
         for cmd, label in HYPRLAND_PRESETS:
-            self.hypr_combo.addItem(f"{label}  [{cmd}]", cmd)
+            self.hypr_combo.addItem(get_icon("layout", color="#94a3b8", size=16), f"{label} [{cmd}]", cmd)
         l_hypr.addWidget(self.hypr_combo)
         l_hypr.addStretch()
         self.stack.addWidget(p_hypr)
@@ -240,8 +246,8 @@ class ButtonEditDialog(QDialog):
         # Page 6: Deaktiviert
         p_none = QWidget()
         l_none = QVBoxLayout(p_none)
-        lbl_none = QLabel("🚫 Diese Taste führt keine Aktion aus.")
-        lbl_none.setStyleSheet("color: #94a3b8; font-style: italic; padding: 20px 0;")
+        lbl_none = QLabel("Diese Taste führt keine Aktion aus.")
+        lbl_none.setStyleSheet("color: #64748b; font-style: italic; padding: 20px 0;")
         l_none.addWidget(lbl_none)
         l_none.addStretch()
         self.stack.addWidget(p_none)
@@ -250,8 +256,9 @@ class ButtonEditDialog(QDialog):
 
         # Beschreibung / Notiz
         desc_box = QHBoxLayout()
-        desc_lbl = QLabel("Beschreibung / Notiz:")
-        desc_lbl.setFixedWidth(130)
+        desc_lbl = QLabel("Beschreibung:")
+        desc_lbl.setFixedWidth(140)
+        desc_lbl.setStyleSheet("color: #94a3b8; font-weight: 600;")
         self.desc_edit = QLineEdit(self.btn_data.get("description", ""))
         desc_box.addWidget(desc_lbl)
         desc_box.addWidget(self.desc_edit)
@@ -260,6 +267,7 @@ class ButtonEditDialog(QDialog):
         # Buttons
         btn_box = QHBoxLayout()
         save_btn = QPushButton("Übernehmen")
+        save_btn.setIcon(get_icon("check", color="#ffffff", size=14))
         save_btn.clicked.connect(self.save)
         cancel_btn = QPushButton("Abbrechen")
         cancel_btn.setObjectName("secondaryBtn")
@@ -270,8 +278,6 @@ class ButtonEditDialog(QDialog):
         layout.addLayout(btn_box)
 
         self.type_combo.currentIndexChanged.connect(self.on_type_changed)
-
-        # Initiale Werte laden
         self.load_initial_values()
 
     def on_type_changed(self, idx):
@@ -302,7 +308,6 @@ class ButtonEditDialog(QDialog):
         curr_type = self.btn_data.get("type", "mouse")
         act = self.btn_data.get("action", "")
 
-        # Find type index
         type_idx = 0
         for i in range(self.type_combo.count()):
             if self.type_combo.itemData(i) == curr_type:
@@ -311,7 +316,6 @@ class ButtonEditDialog(QDialog):
         self.type_combo.setCurrentIndex(type_idx)
         self.stack.setCurrentIndex(type_idx)
 
-        # Pre-fill corresponding page
         if curr_type == "mouse":
             for i in range(self.mouse_combo.count()):
                 if self.mouse_combo.itemData(i) == str(act):
@@ -326,7 +330,7 @@ class ButtonEditDialog(QDialog):
                     found = True
                     break
             if not found and str(act).startswith("profile:"):
-                self.builtin_combo.addItem(f"📁 Direkt zu Profil: '{str(act)[8:]}'", str(act))
+                self.builtin_combo.addItem(get_icon("layers", color="#93c5fd", size=16), f"Direkt zu Profil: '{str(act)[8:]}'", str(act))
                 self.builtin_combo.setCurrentIndex(self.builtin_combo.count() - 1)
 
         elif curr_type == "key":
@@ -436,10 +440,11 @@ class ButtonEditorWidget(QWidget):
 
     def init_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 8, 0, 0)
+        layout.setContentsMargins(4, 10, 4, 4)
+        layout.setSpacing(10)
 
-        header = QLabel("Tastenbelegung für das aktive Profil. Doppelklick oder Auswählen & Bearbeiten:")
-        header.setStyleSheet("color: #94a3b8; margin-bottom: 6px;")
+        header = QLabel("Konfigurierte Tastenbelegungen für das aktive Profil:")
+        header.setStyleSheet("color: #94a3b8; font-weight: 500;")
         layout.addWidget(header)
 
         self.table = QTableWidget()
@@ -452,11 +457,15 @@ class ButtonEditorWidget(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.verticalHeader().setDefaultSectionSize(36)
+        self.table.verticalHeader().setVisible(False)
         self.table.doubleClicked.connect(self.edit_selected)
         layout.addWidget(self.table)
 
         btn_row = QHBoxLayout()
-        edit_btn = QPushButton("✏️ Ausgewählte Taste bearbeiten")
+        edit_btn = QPushButton("Ausgewählte Taste bearbeiten")
+        edit_btn.setObjectName("secondaryBtn")
+        edit_btn.setIcon(get_icon("edit", color="#38bdf8", size=14))
         edit_btn.clicked.connect(self.edit_selected)
         btn_row.addWidget(edit_btn)
         btn_row.addStretch()
@@ -472,16 +481,16 @@ class ButtonEditorWidget(QWidget):
             return str(action)
         elif atype == "builtin":
             builtin_map = {
-                "speed_up": "⚡ Zeiger schneller (+25%)",
-                "speed_down": "🐢 Zeiger langsamer (-20%)",
-                "toggle_2d": "🎯 2D-Modus Toggle",
-                "next_profile": "📁 Nächstes Profil",
-                "prev_profile": "📁 Vorheriges Profil"
+                "speed_up": "Zeiger schneller (+25%)",
+                "speed_down": "Zeiger langsamer (-20%)",
+                "toggle_2d": "2D-Modus umschalten",
+                "next_profile": "Nächstes Profil",
+                "prev_profile": "Vorheriges Profil"
             }
             if action in builtin_map:
                 return builtin_map[action]
             if str(action).startswith("profile:"):
-                return f"📁 Profil aktivieren: '{str(action)[8:]}'"
+                return f"Profil aktivieren: '{str(action)[8:]}'"
             return str(action)
         elif atype == "combo":
             if isinstance(action, list):
@@ -493,7 +502,7 @@ class ButtonEditorWidget(QWidget):
                     return f"{label} ({code})"
             return str(action)
         elif atype == "none":
-            return "🚫 Deaktiviert"
+            return "Deaktiviert"
         return str(action)
 
     def populate_table(self):
@@ -502,20 +511,33 @@ class ButtonEditorWidget(QWidget):
 
         type_names = {
             "mouse": "Mausklick",
-            "builtin": "System & Profile",
+            "builtin": "System & Profil",
             "key": "Einzelne Taste",
-            "combo": "Tastenkombi",
+            "combo": "Tastenkombination",
             "hyprland": "Hyprland",
             "shell": "Shell-Befehl",
             "none": "Deaktiviert"
         }
 
+        type_icon_map = {
+            "mouse": "mouse",
+            "builtin": "cpu",
+            "key": "keyboard",
+            "combo": "command",
+            "hyprland": "layout",
+            "shell": "terminal",
+            "none": "ban"
+        }
+
         for row, (code, data) in enumerate(sorted(buttons.items(), key=lambda x: int(x[0]))):
-            self.table.setItem(row, 0, QTableWidgetItem(f"Code {code}"))
+            self.table.setItem(row, 0, QTableWidgetItem(f"Taste {code}"))
             self.table.setItem(row, 1, QTableWidgetItem(data.get("name", "")))
 
             raw_type = data.get("type", "")
-            self.table.setItem(row, 2, QTableWidgetItem(type_names.get(raw_type, raw_type)))
+            type_item = QTableWidgetItem(type_names.get(raw_type, raw_type))
+            icon_name = type_icon_map.get(raw_type, "keyboard")
+            type_item.setIcon(get_icon(icon_name, color="#38bdf8", size=14))
+            self.table.setItem(row, 2, type_item)
 
             act = data.get("action", "")
             act_str = self.friendly_action_text(raw_type, act)
