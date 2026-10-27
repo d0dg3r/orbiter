@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Orbiter
+GenericName=3Dconnexion SpaceMouse Control
+Comment=3Dconnexion Controller & Linux Mouse Bridge
+Exec=/home/joe/.local/bin/orbiter gui
+Icon=/home/joe/.local/share/icons/hicolor/scalable/apps/orbiter.svg
+Terminal=false
+Type=Application
+Categories=Utility;Settings;HardwareSettings;
+Keywords=3Dconnexion;SpaceMouse;SpaceExplorer;Spacenav;Mouse;

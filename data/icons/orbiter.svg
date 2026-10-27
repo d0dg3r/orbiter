@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <radialGradient id="spaceGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="70%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </radialGradient>
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#818cf8" stop-opacity="0.2"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Disc -->
+  <circle cx="128" cy="128" r="116" fill="#131722" stroke="#2563eb" stroke-width="4"/>
+  
+  <!-- Outer Orbit Rings -->
+  <ellipse cx="128" cy="128" rx="94" ry="46" fill="none" stroke="url(#ringGrad)" stroke-width="5" transform="rotate(-30 128 128)" stroke-dasharray="12 6"/>
+  <ellipse cx="128" cy="128" rx="84" ry="38" fill="none" stroke="#38bdf8" stroke-width="2" transform="rotate(25 128 128)" opacity="0.6"/>
+
+  <!-- 3D Puck Core -->
+  <circle cx="128" cy="128" r="52" fill="url(#spaceGrad)" stroke="#e0f2fe" stroke-width="3"/>
+  <circle cx="128" cy="128" r="32" fill="#0f172a" opacity="0.7"/>
+  
+  <!-- Crosshairs / 6DoF Markers -->
+  <circle cx="128" cy="128" r="6" fill="#ffffff"/>
+  <line x1="128" y1="88" x2="128" y2="98" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <line x1="128" y1="158" x2="128" y2="168" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <line x1="88" y1="128" x2="98" y2="128" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <line x1="158" y1="128" x2="168" y2="128" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+</svg>

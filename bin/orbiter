@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""
+Orbiter Unified Command Line Interface & Runner
+"""
+import sys
+import os
+import socket
+import json
+import subprocess
+from pathlib import Path
+
+# Add project root to sys.path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from orbiter.config import IPC_SOCKET
+
+def send_ipc(command):
+    if not IPC_SOCKET.exists():
+        print("Fehler: Orbiter-Dienst läuft nicht.")
+        return None
+    try:
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.settimeout(1.0)
+        client.connect(str(IPC_SOCKET))
+        client.sendall((command + "\n").encode("utf-8"))
+        resp = client.recv(1024).decode("utf-8").strip()
+        client.close()
+        return resp
+    except Exception as e:
+        print(f"Fehler bei IPC-Verbindung: {e}")
+        return None
+
+def cmd_gui():
+    from orbiter.gui.app import main as gui_main
+    gui_main()
+
+def cmd_daemon():
+    from orbiter.daemon import main as daemon_main
+    daemon_main()
+
+def cmd_status():
+    resp = send_ipc("GET_STATUS")
+    if resp:
+        try:
+            st = json.loads(resp)
+            print("=== Orbiter Status ===")
+            print(f"Gerät verbunden:   {'Ja' if st.get('connected') else 'Nein'}")
+            print(f"Gerätename:        {st.get('device_name')}")
+            print(f"2D-Präzisionsmodus:{'AKTIV' if st.get('mode_2d') else 'HYBRID'}")
+            print(f"Geschwindigkeit:   {st.get('base_speed'):.4f}")
+            print(f"Deadzone:          {st.get('deadzone')}")
+        except Exception:
+            print(resp)
+
+def cmd_toggle_2d():
+    resp = send_ipc("TOGGLE_2D")
+    if resp == "OK":
+        print("2D-Modus umgeschaltet.")
+
+def cmd_reload():
+    resp = send_ipc("RELOAD")
+    if resp == "OK":
+        print("Konfiguration neu geladen.")
+
+def cmd_restart():
+    subprocess.run(["systemctl", "--user", "restart", "orbiter"], check=False)
+    print("Dienst neu gestartet.")
+
+def print_help():
+    print("""Orbiter — 3Dconnexion Controller & Linux Driver
+
+Verwendung:
+  orbiter            Startet die grafische Benutzeroberfläche (GUI)
+  orbiter gui        Startet die GUI
+  orbiter daemon     Startet den Hintergrund-Treiber im Terminal
+  orbiter status     Zeigt den Status des laufenden Dienstes an
+  orbiter 2d         Schaltet den 2D-Modus um
+  orbiter reload     Lädt die Konfiguration neu
+  orbiter restart    Startet den systemd-Dienst neu
+  orbiter help       Zeigt diese Hilfe an
+""")
+
+def main():
+    if len(sys.argv) < 2:
+        cmd_gui()
+        return
+
+    sub = sys.argv[1].lower()
+    if sub in ("gui", "ui", "settings"):
+        cmd_gui()
+    elif sub in ("daemon", "server"):
+        cmd_daemon()
+    elif sub in ("status", "info"):
+        cmd_status()
+    elif sub in ("2d", "toggle"):
+        cmd_toggle_2d()
+    elif sub in ("reload",):
+        cmd_reload()
+    elif sub in ("restart",):
+        cmd_restart()
+    elif sub in ("-h", "--help", "help"):
+        print_help()
+    else:
+        print(f"Unbekannter Befehl: {sub}")
+        print_help()
+
+if __name__ == "__main__":
+    main()
