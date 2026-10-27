@@ -22,6 +22,7 @@ from orbiter.gui.style import DARK_THEME, make_combo_opaque
 from orbiter.gui.icons import get_icon
 from orbiter.gui.widgets.button_editor import ButtonEditorWidget
 from orbiter.gui.widgets.settings_tab import SettingsTabWidget
+from orbiter.gui.widgets.sensitivity_tab import SensitivityTabWidget
 from orbiter.gui.widgets.live_monitor import LiveMonitorWidget
 from orbiter.gui.widgets.auto_rules import AutoRulesWidget
 
@@ -95,8 +96,9 @@ class MainWindow(QMainWindow):
 
             self.tabs.setTabText(0, tr("tab.buttons"))
             self.tabs.setTabText(1, tr("tab.auto_rules"))
-            self.tabs.setTabText(2, tr("tab.settings"))
-            self.tabs.setTabText(3, tr("tab.monitor"))
+            self.tabs.setTabText(2, tr("tab.sensitivity"))
+            self.tabs.setTabText(3, tr("tab.settings"))
+            self.tabs.setTabText(4, tr("tab.monitor"))
 
             self.footer_status.setText(tr("app.footer_live"))
             self.footer_copyright.setText(tr("app.copyright"))
@@ -115,6 +117,8 @@ class MainWindow(QMainWindow):
                 self.btn_tab.retranslate_ui()
             if hasattr(self, "auto_rules_tab"):
                 self.auto_rules_tab.retranslate_ui()
+            if hasattr(self, "sensitivity_tab"):
+                self.sensitivity_tab.retranslate_ui()
             if hasattr(self, "settings_tab"):
                 self.settings_tab.retranslate_ui()
             if hasattr(self, "monitor_tab"):
@@ -285,12 +289,14 @@ class MainWindow(QMainWindow):
 
         self.btn_tab = ButtonEditorWidget(self.config_mgr, self)
         self.auto_rules_tab = AutoRulesWidget(self.config_mgr, self, self)
+        self.sensitivity_tab = SensitivityTabWidget(self.config_mgr, self)
         self.settings_tab = SettingsTabWidget(self.config_mgr, self)
         self.monitor_tab = LiveMonitorWidget(self)
 
         self.tabs.addTab(self.btn_tab, get_icon("keyboard", color="#38bdf8", active_color="#ffffff", size=18), tr("tab.buttons"))
         self.tabs.addTab(self.auto_rules_tab, get_icon("layout", color="#38bdf8", active_color="#ffffff", size=18), tr("tab.auto_rules"))
-        self.tabs.addTab(self.settings_tab, get_icon("sliders", color="#38bdf8", active_color="#ffffff", size=18), tr("tab.settings"))
+        self.tabs.addTab(self.sensitivity_tab, get_icon("sliders", color="#38bdf8", active_color="#ffffff", size=18), tr("tab.sensitivity"))
+        self.tabs.addTab(self.settings_tab, get_icon("settings", color="#38bdf8", active_color="#ffffff", size=18), tr("tab.settings"))
         self.tabs.addTab(self.monitor_tab, get_icon("activity", color="#38bdf8", active_color="#ffffff", size=18), tr("tab.monitor"))
 
         main_layout.addWidget(self.tabs)
@@ -362,7 +368,8 @@ class MainWindow(QMainWindow):
 
     def refresh_all_tabs(self):
         self.btn_tab.populate_table()
-        self.settings_tab.load_settings()
+        if hasattr(self, "sensitivity_tab"):
+            self.sensitivity_tab.load_settings()
         if hasattr(self, "auto_rules_tab"):
             self.auto_rules_tab.populate_rules_table()
             self.auto_rules_tab.populate_profile_combo()

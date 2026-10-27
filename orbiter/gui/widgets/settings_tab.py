@@ -1,14 +1,13 @@
 """
-Settings & Sensitivity Sliders Widget for Orbiter
+App preferences: language and config export/import.
 """
 from datetime import datetime
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QSlider, QCheckBox,
+    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
     QComboBox, QPushButton, QFileDialog, QMessageBox
 )
-from PyQt6.QtCore import Qt
 
 from orbiter.gui.style import make_combo_opaque
 from orbiter.gui.icons import get_icon
@@ -40,58 +39,6 @@ class SettingsTabWidget(QWidget):
         lang_layout.addWidget(self.lang_hint)
         layout.addWidget(self.lang_group)
 
-        self.pointer_group = QGroupBox()
-        p_layout = QVBoxLayout(self.pointer_group)
-
-        self.speed_caption = QLabel()
-        p_layout.addWidget(self.speed_caption)
-        speed_box = QHBoxLayout()
-        self.speed_slider = QSlider(Qt.Orientation.Horizontal)
-        self.speed_slider.setRange(10, 200)
-        self.speed_label = QLabel()
-        speed_box.addWidget(self.speed_slider)
-        speed_box.addWidget(self.speed_label)
-        p_layout.addLayout(speed_box)
-
-        self.dz_caption = QLabel()
-        p_layout.addWidget(self.dz_caption)
-        dz_box = QHBoxLayout()
-        self.dz_slider = QSlider(Qt.Orientation.Horizontal)
-        self.dz_slider.setRange(5, 50)
-        self.dz_label = QLabel()
-        dz_box.addWidget(self.dz_slider)
-        dz_box.addWidget(self.dz_label)
-        p_layout.addLayout(dz_box)
-
-        self.mode_2d_check = QCheckBox()
-        p_layout.addWidget(self.mode_2d_check)
-        layout.addWidget(self.pointer_group)
-
-        self.scroll_group = QGroupBox()
-        s_layout = QVBoxLayout(self.scroll_group)
-
-        self.sc_speed_caption = QLabel()
-        s_layout.addWidget(self.sc_speed_caption)
-        sc_speed_box = QHBoxLayout()
-        self.sc_speed_slider = QSlider(Qt.Orientation.Horizontal)
-        self.sc_speed_slider.setRange(10, 100)
-        self.sc_speed_label = QLabel()
-        sc_speed_box.addWidget(self.sc_speed_slider)
-        sc_speed_box.addWidget(self.sc_speed_label)
-        s_layout.addLayout(sc_speed_box)
-
-        self.sc_dz_caption = QLabel()
-        s_layout.addWidget(self.sc_dz_caption)
-        sc_dz_box = QHBoxLayout()
-        self.sc_dz_slider = QSlider(Qt.Orientation.Horizontal)
-        self.sc_dz_slider.setRange(40, 150)
-        self.sc_dz_label = QLabel()
-        sc_dz_box.addWidget(self.sc_dz_slider)
-        sc_dz_box.addWidget(self.sc_dz_label)
-        s_layout.addLayout(sc_dz_box)
-
-        layout.addWidget(self.scroll_group)
-
         self.backup_group = QGroupBox()
         b_layout = QHBoxLayout(self.backup_group)
         self.export_btn = QPushButton()
@@ -107,14 +54,7 @@ class SettingsTabWidget(QWidget):
         b_layout.addStretch()
         layout.addWidget(self.backup_group)
 
-        self.speed_slider.valueChanged.connect(self.on_speed_changed)
-        self.dz_slider.valueChanged.connect(self.on_dz_changed)
-        self.sc_speed_slider.valueChanged.connect(self.on_sc_speed_changed)
-        self.sc_dz_slider.valueChanged.connect(self.on_sc_dz_changed)
-        self.mode_2d_check.toggled.connect(self.on_mode_2d_toggled)
-
         layout.addStretch()
-        self.load_settings()
         self.retranslate_ui()
 
     def _rebuild_lang_combo(self):
@@ -136,13 +76,6 @@ class SettingsTabWidget(QWidget):
         self.lang_group.setTitle(tr("settings.language"))
         self.lang_hint.setText(tr("settings.language_hint"))
         self._rebuild_lang_combo()
-        self.pointer_group.setTitle(tr("settings.pointer_group"))
-        self.speed_caption.setText(tr("settings.pointer_speed"))
-        self.dz_caption.setText(tr("settings.deadzone"))
-        self.mode_2d_check.setText(tr("settings.mode_2d_default"))
-        self.scroll_group.setTitle(tr("settings.scroll_group"))
-        self.sc_speed_caption.setText(tr("settings.scroll_speed"))
-        self.sc_dz_caption.setText(tr("settings.scroll_threshold"))
         self.backup_group.setTitle(tr("settings.backup_group"))
         self.export_btn.setText(tr("settings.export"))
         self.import_btn.setText(tr("settings.import"))
@@ -192,62 +125,3 @@ class SettingsTabWidget(QWidget):
         self.config_mgr.set("ui_language", code)
         self.config_mgr.save()
         set_language(resolve_lang(code))
-
-    def load_settings(self):
-        self._loading = True
-        try:
-            speed = self.config_mgr.get("base_speed", 0.05)
-            self.speed_slider.setValue(int(speed * 1000))
-            self.speed_label.setText(f"{speed:.3f}")
-
-            dz = self.config_mgr.get("deadzone", 18)
-            self.dz_slider.setValue(int(dz))
-            self.dz_label.setText(f"{dz}")
-
-            sc_speed = self.config_mgr.get("scroll_speed", 0.0035)
-            self.sc_speed_slider.setValue(int(sc_speed * 10000))
-            self.sc_speed_label.setText(f"{sc_speed:.4f}")
-
-            sc_dz = self.config_mgr.get("scroll_deadzone_twist", 90)
-            self.sc_dz_slider.setValue(int(sc_dz))
-            self.sc_dz_label.setText(f"{sc_dz}")
-
-            self.mode_2d_check.setChecked(self.config_mgr.get("mode_2d", True))
-        finally:
-            self._loading = False
-
-    def on_speed_changed(self, val):
-        if self._loading:
-            return
-        speed = val / 1000.0
-        self.speed_label.setText(f"{speed:.3f}")
-        self.config_mgr.set("base_speed", speed)
-        self.config_mgr.save()
-
-    def on_dz_changed(self, val):
-        if self._loading:
-            return
-        self.dz_label.setText(f"{val}")
-        self.config_mgr.set("deadzone", val)
-        self.config_mgr.save()
-
-    def on_sc_speed_changed(self, val):
-        if self._loading:
-            return
-        sc_speed = val / 10000.0
-        self.sc_speed_label.setText(f"{sc_speed:.4f}")
-        self.config_mgr.set("scroll_speed", sc_speed)
-        self.config_mgr.save()
-
-    def on_sc_dz_changed(self, val):
-        if self._loading:
-            return
-        self.sc_dz_label.setText(f"{val}")
-        self.config_mgr.set("scroll_deadzone_twist", val)
-        self.config_mgr.save()
-
-    def on_mode_2d_toggled(self, checked):
-        if self._loading:
-            return
-        self.config_mgr.set("mode_2d", checked)
-        self.config_mgr.save()
