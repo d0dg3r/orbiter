@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QSize
 from orbiter.gui.icons import get_icon
+from orbiter.gui.style import make_combo_opaque
 
 MOUSE_OPTIONS = [
     ("BTN_LEFT", "Linksklick (Standard)"),
@@ -105,6 +106,7 @@ class ButtonEditDialog(QDialog):
         type_lbl.setStyleSheet("color: #94a3b8; font-weight: 600;")
         self.type_combo = QComboBox()
         self.type_combo.setIconSize(QSize(16, 16))
+        make_combo_opaque(self.type_combo)
         self.type_combo.addItem(get_icon("mouse", color="#38bdf8", size=16), "Mausklick", "mouse")
         self.type_combo.addItem(get_icon("cpu", color="#38bdf8", size=16), "System / Intern & Profile", "builtin")
         self.type_combo.addItem(get_icon("keyboard", color="#38bdf8", size=16), "Einzelne Taste (z. B. F11, ESC)", "key")
@@ -132,6 +134,7 @@ class ButtonEditDialog(QDialog):
         l_mouse.addWidget(QLabel("Wähle die gewünschte Maustasten-Aktion:"))
         self.mouse_combo = QComboBox()
         self.mouse_combo.setIconSize(QSize(16, 16))
+        make_combo_opaque(self.mouse_combo)
         for code, label in MOUSE_OPTIONS:
             self.mouse_combo.addItem(get_icon("mouse", color="#94a3b8", size=16), f"{label} ({code})", code)
         l_mouse.addWidget(self.mouse_combo)
@@ -144,6 +147,7 @@ class ButtonEditDialog(QDialog):
         l_builtin.addWidget(QLabel("Wähle eine interne Orbiter-Funktion oder ein Zielprofil:"))
         self.builtin_combo = QComboBox()
         self.builtin_combo.setIconSize(QSize(16, 16))
+        make_combo_opaque(self.builtin_combo)
         self.builtin_combo.addItem(get_icon("trending-up", color="#38bdf8", size=16), "Zeiger schneller (+25%)", "speed_up")
         self.builtin_combo.addItem(get_icon("trending-down", color="#38bdf8", size=16), "Zeiger langsamer (-20%)", "speed_down")
         self.builtin_combo.addItem(get_icon("target", color="#38bdf8", size=16), "2D-Präzisionsmodus umschalten", "toggle_2d")
@@ -169,6 +173,7 @@ class ButtonEditDialog(QDialog):
         self.key_combo = QComboBox()
         self.key_combo.setIconSize(QSize(16, 16))
         self.key_combo.setEditable(True)
+        make_combo_opaque(self.key_combo)
         for code, label in COMMON_KEYS:
             self.key_combo.addItem(get_icon("keyboard", color="#94a3b8", size=16), f"{label} ({code})", code)
         l_key.addWidget(self.key_combo)
@@ -196,6 +201,7 @@ class ButtonEditDialog(QDialog):
         self.combo_target_key = QComboBox()
         self.combo_target_key.setIconSize(QSize(16, 16))
         self.combo_target_key.setEditable(True)
+        make_combo_opaque(self.combo_target_key)
         for code, label in COMMON_KEYS:
             self.combo_target_key.addItem(get_icon("keyboard", color="#94a3b8", size=16), f"{label} ({code})", code)
         key_target_box.addWidget(self.combo_target_key)
@@ -227,6 +233,7 @@ class ButtonEditDialog(QDialog):
         self.hypr_combo = QComboBox()
         self.hypr_combo.setIconSize(QSize(16, 16))
         self.hypr_combo.setEditable(True)
+        make_combo_opaque(self.hypr_combo)
         for cmd, label in HYPRLAND_PRESETS:
             self.hypr_combo.addItem(get_icon("layout", color="#94a3b8", size=16), f"{label} [{cmd}]", cmd)
         l_hypr.addWidget(self.hypr_combo)
@@ -507,7 +514,22 @@ class ButtonEditorWidget(QWidget):
 
     def populate_table(self):
         buttons = self.config_mgr.get("buttons", {})
-        self.table.setRowCount(len(buttons))
+        override = self.config_mgr.get_model_override()
+
+        from orbiter.device import DEVICE_MODELS, detect_device_model
+        if override != "auto" and override in DEVICE_MODELS:
+            model = DEVICE_MODELS[override]
+        else:
+            model = detect_device_model()
+
+        model_buttons = model.get("buttons", {})
+        # Falls Modell definiert ist, filtern wir nur auf die Tasten des Modells
+        if model_buttons:
+            filtered_codes = [c for c in sorted(model_buttons.keys(), key=lambda x: int(x))]
+        else:
+            filtered_codes = [c for c in sorted(buttons.keys(), key=lambda x: int(x))]
+
+        self.table.setRowCount(len(filtered_codes))
 
         type_names = {
             "mouse": "Mausklick",
@@ -529,11 +551,16 @@ class ButtonEditorWidget(QWidget):
             "none": "ban"
         }
 
-        for row, (code, data) in enumerate(sorted(buttons.items(), key=lambda x: int(x[0]))):
-            self.table.setItem(row, 0, QTableWidgetItem(f"Taste {code}"))
-            self.table.setItem(row, 1, QTableWidgetItem(data.get("name", "")))
+        for row, code in enumerate(filtered_codes):
+            data = buttons.get(code, {})
+            model_btn_info = model_buttons.get(code, {})
+            hw_label = model_btn_info.get("name", code)
 
-            raw_type = data.get("type", "")
+            self.table.setItem(row, 0, QTableWidgetItem(f"Taste {code} ({hw_label})"))
+            btn_name = data.get("name") or hw_label
+            self.table.setItem(row, 1, QTableWidgetItem(btn_name))
+
+            raw_type = data.get("type", "none")
             type_item = QTableWidgetItem(type_names.get(raw_type, raw_type))
             icon_name = type_icon_map.get(raw_type, "keyboard")
             type_item.setIcon(get_icon(icon_name, color="#38bdf8", size=14))

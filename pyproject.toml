@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orbiter"
+version = "0.1.0"
+description = "Native Linux- und Wayland-Treiber plus GUI für 3Dconnexion SpaceMouse-Geräte"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "devops-geek" },
+]
+keywords = ["3dconnexion", "spacemouse", "linux", "wayland", "evdev"]
+dependencies = [
+    "evdev",
+    "PyQt6",
+]
+
+[project.scripts]
+orbiter = "orbiter.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/d0dg3r/orbiter"
+
+[tool.setuptools.packages.find]
+include = ["orbiter*"]
+
+[tool.setuptools.package-data]
+orbiter = ["locales/*.json"]

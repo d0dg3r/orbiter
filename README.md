@@ -1,77 +1,88 @@
-# 🛸 Orbiter
+# Orbiter
 
-**Native Linux & Wayland Driver + GUI Controller for 3Dconnexion SpaceMouse Devices**
+**Native Linux & Wayland driver + GUI for 3Dconnexion SpaceMouse devices**
 
-Orbiter turns 3Dconnexion 6DoF devices (SpaceExplorer, SpaceNavigator, SpaceMouse Pro, SpacePilot) into a fluid, highly customizable 2D precision mouse, navigation controller, and macro pad under Linux (Wayland & X11).
+[Deutsch lesen](README.de.md) · License: [MIT](LICENSE) · [Contributing](CONTRIBUTING.md)
+
+Orbiter turns 3Dconnexion 6DoF devices (SpaceExplorer, SpaceNavigator, SpaceMouse Pro, SpacePilot, …) into a fluid, highly customizable 2D precision mouse, navigation controller, and macro pad under Linux (Wayland & X11).
 
 ![Orbiter Icon](data/icons/orbiter.svg)
 
 ---
 
-## ✨ Features
+## Features
 
-- **Fluid Joystick-Style Pointer Translation:** 60 Hz ticker with customizable velocity curve. Push slightly for precision, push harder for speed.
-- **2D-Precision Mode:** Lock out pitch/roll/tilt with a single button press for 100% planar gliding on the desktop.
-- **Anti-Ghost Scroll Protection:**
-  - 100% scroll lockout while moving the pointer.
-  - 150 ms cooldown prevents accidental scrolling when releasing the cap.
-  - Twist-based scrolling (turn the cap like a knob for buttery smooth page scrolling).
-- **Profile Management:**
-  - Create, duplicate, rename, and delete profiles (e.g., `Standard`, `CAD / 3D`, `Browser / Medien`).
-  - Switch profiles via GUI toolbar, system tray menu, or dedicated hardware buttons (`next_profile`, `prev_profile`, `profile:<name>`).
-  - Native desktop notifications (`notify-send`) when switching profiles.
-- **Modern Dark GUI (PyQt6):**
-  - **Dropdown Button Editor:** Intuitive dropdown selectors for mouse buttons, internal functions & profiles, individual keys, shortcuts with modifier checkboxes, and Hyprland presets.
-  - **Sensitivity Sliders:** Live adjustment of pointer speed, deadzones, and scroll speed per profile.
-  - **Live Hardware Monitor:** Real-time 6-axis visualizer and button press tester.
-- **Live Config Reload:** Changes in the GUI or `~/.config/orbiter/config.json` take effect immediately without restarting the daemon.
-- **Hyprland & Wayland Native:** Full integration with Hyprland workspaces and Wayland compositors via kernel `uinput`.
+- **Fluid joystick-style pointer:** 60 Hz ticker with customizable velocity curve
+- **2D precision mode:** lock out pitch/roll/tilt for planar desktop gliding
+- **Anti-ghost scroll:** scroll lock while moving + cooldown; twist-to-scroll
+- **Profiles:** create, duplicate, rename, delete; switch via GUI, tray, or hardware
+- **Auto profiles:** switch by active window (Hyprland / X11)
+- **Dark PyQt6 GUI** with live hardware monitor
+- **Live config reload** without restarting the daemon
+- **DE / EN UI** — language follows the system or Settings → Language
 
 ---
 
-## 🚀 Installation
+## Requirements
 
-Run the automated installer:
+- Linux with `uinput` (user in group `input` recommended)
+- Python 3.10+
+- PyQt6, python-evdev, libnotify (`notify-send`)
+- **spacenavd must be disabled** — it conflicts with Orbiter on the same HID device
+
+---
+
+## Install
+
+### Distro packages (recommended)
 
 ```bash
-cd ~/Development/orbiter
+./packaging/build.sh   # needs nfpm
+
+# Debian/Ubuntu
+sudo apt install ./dist/orbiter_*.deb
+
+# Fedora/RHEL
+sudo dnf install ./dist/orbiter-*.rpm
+
+# Arch
+sudo pacman -U ./dist/orbiter-*-x86_64.pkg.tar.zst
+
+sudo usermod -aG input "$USER"   # then re-login
+systemctl --user daemon-reload
+systemctl --user enable --now orbiter
+```
+
+Details: [packaging/README.md](packaging/README.md)
+
+### Developer install
+
+```bash
 ./install.sh
 ```
 
-This will:
-1. Symlink `orbiter` into `~/.local/bin/orbiter`.
-2. Install the desktop entry for Rofi / App-Launcher.
-3. Install and start the background systemd user service (`orbiter.service`).
-
 ---
 
-## 🛠️ Usage
+## Usage
 
-### Open Settings GUI
-Search for **Orbiter** in your app launcher (Rofi / Super+D) or run:
 ```bash
-orbiter
+orbiter                 # GUI + tray
+orbiter status          # connection, profile, spacenavd conflict
+orbiter profile next    # switch profile
+orbiter 2d              # toggle 2D mode
+orbiter restart         # restart user service
 ```
 
-### CLI Commands
-```bash
-orbiter status                       # Check connection, active profile, and mode
-orbiter profile                      # List all available profiles and active profile
-orbiter profile <name|next|prev>     # Switch to profile (e.g. 'CAD / 3D', 'next', 'prev')
-orbiter 2d                           # Toggle 2D precision mode
-orbiter reload                       # Reload config from disk
-orbiter restart                      # Restart systemd background service
-orbiter daemon                       # Run daemon interactively in foreground
-```
+Config: `~/.config/orbiter/config.json`
 
 ---
 
-## 📁 Configuration
+## Contributing
 
-Configuration is stored in human-readable JSON:
-`~/.config/orbiter/config.json`
+Contributions are welcome — code, docs, translations, packaging, testing on more SpaceMouse models. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
-## 📜 License
-MIT License
+## License
+
+[MIT](LICENSE) © 2026 devops-geek / Joe

@@ -14,8 +14,11 @@ import evdev
 from evdev import UInput, ecodes as e
 
 from orbiter.config import ConfigManager, IPC_SOCKET
-from orbiter.device import find_spacemouse_device, wait_for_device
+from orbiter.device import find_spacemouse_device, wait_for_device, detect_device_model, DEVICE_MODELS
 from orbiter.actions import ALL_UINPUT_KEYS, execute_action
+from orbiter.window_watcher import WindowWatcher
+from orbiter.conflicts import spacenavd_running, check_spacenavd_conflict
+from orbiter.i18n import init_from_config, tr
 
 class OrbiterDaemon:
     def __init__(self):
@@ -24,6 +27,7 @@ class OrbiterDaemon:
 
         self.running = True
         self.device = None
+        self.device_model = None
         self.vmouse = None
 
         # State
@@ -37,24 +41,45 @@ class OrbiterDaemon:
         self.ipc_clients = []
         self.ipc_lock = threading.Lock()
 
+        # Window Watcher for Auto-Profile-Switching
+        self.watcher = WindowWatcher(on_window_changed=self.on_active_window_changed)
+        self.last_auto_switched_profile = None
+
+    def on_active_window_changed(self, info):
+        """Wird ausgelöst, wenn der Benutzer zu einem anderen Fenster wechselt."""
+        w_class = info.get("class", "")
+        w_title = info.get("title", "")
+        target_profile = self.config_mgr.get_profile_for_window(w_class, w_title)
+        if target_profile and target_profile != self.active_profile:
+            print(tr("daemon.auto_profile", wclass=w_class, profile=target_profile))
+            self.last_auto_switched_profile = target_profile
+            self.switch_profile(target_profile)
+
     def reload_config(self):
         self.config = self.config_mgr.load()
         self.active_profile = self.config_mgr.get_active_profile_name()
         self.mode_2d = self.config_mgr.get("mode_2d", self.mode_2d)
         self.base_speed = self.config_mgr.get("base_speed", self.base_speed)
-        print(f"[Daemon] Konfiguration live neu geladen. Aktives Profil: {self.active_profile}")
+        print(tr("daemon.reload", profile=self.active_profile))
 
     def notify_profile_change(self, profile_name):
         try:
-            icon_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "icons", "orbiter.svg")
+            # Dev-Repo: …/orbiter/data/icons/; Paket: /usr/share/icons/…/orbiter.svg
+            repo_icon = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), "data", "icons", "orbiter.svg"
+            )
+            fhs_icon = "/usr/share/icons/hicolor/scalable/apps/orbiter.svg"
+            icon_file = repo_icon if os.path.isfile(repo_icon) else (
+                fhs_icon if os.path.isfile(fhs_icon) else "orbiter"
+            )
             import subprocess
             subprocess.Popen([
                 "notify-send",
                 "-a", "Orbiter",
                 "-i", icon_file,
                 "-t", "1800",
-                "Orbiter Profil gewechselt",
-                f"Aktiv: {profile_name}"
+                tr("daemon.notify_title"),
+                tr("daemon.notify_body", profile=profile_name)
             ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception:
             pass
@@ -67,40 +92,41 @@ class OrbiterDaemon:
         new_prof = self.config_mgr.set_active_profile(name)
         self.reload_config()
         self.notify_profile_change(new_prof)
-        print(f"[Daemon] Profil gewechselt zu: {new_prof}")
+        print(tr("daemon.profile", profile=new_prof))
         return new_prof
 
     def next_profile(self):
         new_prof = self.config_mgr.next_profile()
         self.reload_config()
         self.notify_profile_change(new_prof)
-        print(f"[Daemon] Nächstes Profil: {new_prof}")
+        print(tr("daemon.next_profile", profile=new_prof))
         return new_prof
 
     def prev_profile(self):
         new_prof = self.config_mgr.prev_profile()
         self.reload_config()
         self.notify_profile_change(new_prof)
-        print(f"[Daemon] Vorheriges Profil: {new_prof}")
+        print(tr("daemon.prev_profile", profile=new_prof))
         return new_prof
 
     def speed_up(self):
         self.base_speed = min(self.base_speed * 1.25, 0.20)
         self.config_mgr.set("base_speed", self.base_speed)
         self.config_mgr.save()
-        print(f"[Daemon] Geschwindigkeit erhöht: {self.base_speed:.4f}")
+        print(tr("daemon.speed_up", speed=self.base_speed))
 
     def speed_down(self):
         self.base_speed = max(self.base_speed * 0.80, 0.01)
         self.config_mgr.set("base_speed", self.base_speed)
         self.config_mgr.save()
-        print(f"[Daemon] Geschwindigkeit verringert: {self.base_speed:.4f}")
+        print(tr("daemon.speed_down", speed=self.base_speed))
 
     def toggle_2d(self):
         self.mode_2d = not self.mode_2d
         self.config_mgr.set("mode_2d", self.mode_2d)
         self.config_mgr.save()
-        print(f"[Daemon] 2D-Modus: {'AKTIV' if self.mode_2d else 'HYBRID'}")
+        mode = tr("daemon.mode_active") if self.mode_2d else tr("daemon.mode_hybrid")
+        print(tr("daemon.mode_2d", mode=mode))
 
     def setup_uinput(self):
         cap = {
@@ -108,7 +134,7 @@ class OrbiterDaemon:
             e.EV_KEY: ALL_UINPUT_KEYS
         }
         self.vmouse = UInput(cap, name="Orbiter SpaceMouse")
-        print("[Daemon] Virtuelles Eingabegerät 'Orbiter SpaceMouse' erstellt.")
+        print(tr("daemon.uinput"))
 
     def start_ipc_server(self):
         """Erstellt einen Unix Domain Socket für Kommunikation mit der GUI."""
@@ -140,14 +166,28 @@ class OrbiterDaemon:
                                 continue
                             msg = data.decode("utf-8").strip()
                             if msg == "GET_STATUS":
+                                override = self.config_mgr.get_model_override()
+                                if override != "auto" and override in DEVICE_MODELS:
+                                    effective_model = DEVICE_MODELS[override]
+                                else:
+                                    effective_model = self.device_model or detect_device_model(self.device)
+
+                                active_win = self.watcher.get_active_window()
                                 status = {
                                     "connected": self.device is not None,
                                     "device_name": self.device.name if self.device else "None",
+                                    "model_id": effective_model["id"],
+                                    "model_name": effective_model["name"],
+                                    "model_buttons": effective_model["button_count"],
+                                    "model_override": override,
+                                    "auto_switch_enabled": self.config_mgr.is_auto_switch_enabled(),
+                                    "active_window": active_win,
                                     "mode_2d": self.mode_2d,
                                     "base_speed": self.base_speed,
                                     "deadzone": self.config_mgr.get("deadzone", 18),
                                     "active_profile": self.config_mgr.get_active_profile_name(),
-                                    "profiles": list(self.config_mgr.get_profiles().keys())
+                                    "profiles": list(self.config_mgr.get_profiles().keys()),
+                                    "spacenavd_conflict": spacenavd_running(),
                                 }
                                 s.sendall((json.dumps(status) + "\n").encode("utf-8"))
                             elif msg == "RELOAD":
@@ -155,6 +195,16 @@ class OrbiterDaemon:
                                 s.sendall(b"OK\n")
                             elif msg == "TOGGLE_2D":
                                 self.toggle_2d()
+                                s.sendall(b"OK\n")
+                            elif msg.startswith("SET_AUTO_SWITCH"):
+                                parts = msg.split()
+                                val = (parts[1].lower() == "true") if len(parts) > 1 else True
+                                self.config_mgr.set_auto_switch_enabled(val)
+                                s.sendall(b"OK\n")
+                            elif msg.startswith("SET_MODEL_OVERRIDE"):
+                                parts = msg.split()
+                                m_id = parts[1] if len(parts) > 1 else "auto"
+                                self.config_mgr.set_model_override(m_id)
                                 s.sendall(b"OK\n")
                             elif msg.startswith("SWITCH_PROFILE"):
                                 parts = msg.split(maxsplit=1)
@@ -258,6 +308,7 @@ class OrbiterDaemon:
     def run(self):
         self.setup_uinput()
         self.start_ipc_server()
+        self.watcher.start()
 
         ticker = threading.Thread(target=self.ticker_loop, daemon=True)
         ticker.start()
@@ -271,11 +322,17 @@ class OrbiterDaemon:
             "switch_profile": self.switch_profile
         }
 
-        print("[Daemon] Orbiter Daemon gestartet. Warte auf 3Dconnexion-Hardware...")
+        print(tr("daemon.started"))
 
         while self.running:
             self.device = wait_for_device()
-            print(f"[Daemon] Verbunden mit: {self.device.name} ({self.device.path})")
+            self.device_model = detect_device_model(self.device)
+            print(tr(
+                "daemon.connected",
+                name=self.device.name,
+                model=self.device_model["name"],
+                buttons=self.device_model["button_count"],
+            ))
 
             try:
                 for event in self.device.read_loop():
@@ -313,7 +370,7 @@ class OrbiterDaemon:
                             )
 
             except (OSError, Exception) as err:
-                print(f"[Daemon] Verbindung verloren ({err}). Warte auf Wiederverbindung...")
+                print(tr("daemon.lost", err=err))
                 self.device = None
                 time.sleep(1.0)
 
@@ -323,11 +380,17 @@ class OrbiterDaemon:
             IPC_SOCKET.unlink()
 
 def main():
+    init_from_config(ConfigManager())
+    conflict = check_spacenavd_conflict()
+    if conflict:
+        print(tr("daemon.conflict", msg=conflict), file=sys.stderr)
+        sys.exit(1)
+
     daemon = OrbiterDaemon()
     try:
         daemon.run()
     except KeyboardInterrupt:
-        print("\n[Daemon] Beendet durch Benutzer.")
+        print(tr("daemon.stopped"))
         daemon.running = False
 
 if __name__ == "__main__":

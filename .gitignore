@@ -4,3 +4,10 @@ __pycache__/
 *.tmp
 *.sock
 .cache/
+dist/
+packaging/staging/
+packaging/nfpm.generated.yaml
+*.egg-info/
+build/
+.venv/
+venv/

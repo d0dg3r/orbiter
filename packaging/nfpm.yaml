@@ -1,0 +1,98 @@
+# nfpm Spec — Orbiter (deb / rpm / archlinux)
+# Gebaut von packaging/build.sh (Version/Contents werden gesetzt bzw. gestaged).
+
+name: orbiter
+arch: amd64
+platform: linux
+version: ${VERSION}
+release: "1"
+section: utils
+priority: optional
+maintainer: devops-geek <admin@devops-geek.net>
+description: |
+  Native Linux- und Wayland-Treiber plus GUI für 3Dconnexion SpaceMouse-Geräte.
+  Liefert einen systemd-User-Dienst, Desktop-Eintrag und uinput-udev-Regel.
+vendor: devops-geek
+homepage: https://github.com/d0dg3r/orbiter
+license: MIT
+
+# Deb / RPM Conflicts
+conflicts:
+  - spacenavd
+replaces:
+  - spacenavd
+
+depends:
+  # Debian/Ubuntu-Namen als Basis; Overrides unten für rpm/arch
+  - python3
+  - python3-pyqt6
+  - python3-evdev
+  - libnotify-bin
+
+recommends:
+  - xdotool
+  - xprop
+
+contents:
+  - src: packaging/staging/usr/bin/orbiter
+    dst: /usr/bin/orbiter
+    file_info:
+      mode: 0755
+  - src: packaging/staging/usr/lib/orbiter
+    dst: /usr/lib/orbiter
+  - src: packaging/staging/usr/lib/systemd/user/orbiter.service
+    dst: /usr/lib/systemd/user/orbiter.service
+  - src: packaging/staging/usr/share/applications/orbiter.desktop
+    dst: /usr/share/applications/orbiter.desktop
+  - src: packaging/staging/usr/share/icons/hicolor/scalable/apps/orbiter.svg
+    dst: /usr/share/icons/hicolor/scalable/apps/orbiter.svg
+  - src: packaging/staging/usr/lib/udev/rules.d/99-orbiter-uinput.rules
+    dst: /usr/lib/udev/rules.d/99-orbiter-uinput.rules
+  - src: LICENSE
+    dst: /usr/share/doc/orbiter/LICENSE
+  - src: README.md
+    dst: /usr/share/doc/orbiter/README.md
+  - src: README.de.md
+    dst: /usr/share/doc/orbiter/README.de.md
+
+
+scripts:
+  postinstall: packaging/scripts/postinstall.sh
+  postremove: packaging/scripts/postremove.sh
+
+overrides:
+  deb:
+    depends:
+      - python3
+      - python3-pyqt6
+      - python3-evdev
+      - libnotify-bin
+    recommends:
+      - xdotool
+      - xprop
+    conflicts:
+      - spacenavd
+  rpm:
+    depends:
+      - python3
+      - python3-pyqt6
+      - python3-evdev
+      - libnotify
+    recommends:
+      - xdotool
+      - xprop
+    conflicts:
+      - spacenavd
+  archlinux:
+    # Arch-Paketnamen
+    depends:
+      - python
+      - python-pyqt6
+      - python-evdev
+      - libnotify
+    # nfpm maps recommends → optdepends on arch
+    recommends:
+      - xdotool
+      - xorg-xprop
+    conflicts:
+      - spacenavd

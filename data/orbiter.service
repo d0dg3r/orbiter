@@ -1,10 +1,14 @@
 [Unit]
 Description=Orbiter — 3Dconnexion SpaceMouse Driver & Bridge
 After=default.target
+# spacenavd konkurriert um dasselbe Gerät — nicht parallel starten
+Conflicts=spacenavd.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
-ExecStart=/home/joe/.local/bin/orbiter daemon
-Restart=always
+ExecStart=/usr/bin/orbiter daemon
+Restart=on-failure
 RestartSec=3
 
 [Install]

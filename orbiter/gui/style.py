@@ -263,13 +263,40 @@ QComboBox::drop-down {
 }
 
 QComboBox QAbstractItemView {
-    background-color: #161a27;
+    background-color: #141724;
+    background: #141724;
+    color: #f8fafc;
     border: 1px solid #2e364e;
     border-radius: 8px;
     selection-background-color: #2563eb;
     selection-color: #ffffff;
     padding: 4px;
     outline: none;
+}
+
+QComboBox QAbstractItemView::item {
+    min-height: 28px;
+    padding: 6px 10px;
+    border-radius: 5px;
+    color: #f8fafc;
+    background: transparent;
+}
+
+QComboBox QAbstractItemView::item:hover {
+    background-color: #202638;
+    color: #ffffff;
+}
+
+QComboBox QAbstractItemView::item:selected {
+    background-color: #2563eb;
+    color: #ffffff;
+}
+
+QComboBoxPrivateContainer {
+    background-color: #141724;
+    background: #141724;
+    border: 1px solid #2e364e;
+    border-radius: 8px;
 }
 
 QCheckBox {
@@ -319,3 +346,16 @@ QMenu::separator {
     margin: 4px 6px;
 }
 """
+
+def make_combo_opaque(combo):
+    """Verhindert zuverlässig Transparenz-Bugs bei QComboBox Dropdowns unter Wayland."""
+    from PyQt6.QtCore import Qt
+    view = combo.view()
+    view.setAutoFillBackground(True)
+    view.setStyleSheet("background-color: #141724; color: #f8fafc;")
+    container = view.parentWidget()
+    if container:
+        container.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
+        container.setAutoFillBackground(True)
+        container.setStyleSheet("background-color: #141724; border: 1px solid #2e364e; border-radius: 8px;")
+

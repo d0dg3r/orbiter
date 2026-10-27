@@ -2,9 +2,13 @@
 Settings & Sensitivity Sliders Widget for Orbiter
 """
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QSlider, QCheckBox
+    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QSlider, QCheckBox, QComboBox
 )
 from PyQt6.QtCore import Qt
+
+from orbiter.gui.style import make_combo_opaque
+from orbiter.i18n import tr, set_language, resolve_lang
+
 
 class SettingsTabWidget(QWidget):
     def __init__(self, config_mgr, parent=None):
@@ -16,22 +20,39 @@ class SettingsTabWidget(QWidget):
     def init_ui(self):
         layout = QVBoxLayout(self)
 
+        # Language
+        lang_group = QGroupBox(tr("settings.language"))
+        lang_layout = QVBoxLayout(lang_group)
+        self.lang_combo = QComboBox()
+        make_combo_opaque(self.lang_combo)
+        self.lang_combo.addItem(tr("settings.language_auto"), "auto")
+        self.lang_combo.addItem(tr("settings.language_de"), "de")
+        self.lang_combo.addItem(tr("settings.language_en"), "en")
+        cur = self.config_mgr.get("ui_language", "auto")
+        idx = self.lang_combo.findData(cur)
+        if idx >= 0:
+            self.lang_combo.setCurrentIndex(idx)
+        self.lang_combo.currentIndexChanged.connect(self.on_language_changed)
+        lang_layout.addWidget(self.lang_combo)
+        hint = QLabel(tr("settings.language_hint"))
+        hint.setStyleSheet("color: #64748b; font-size: 11px;")
+        lang_layout.addWidget(hint)
+        layout.addWidget(lang_group)
+
         # 1. Zeiger-Einstellungen
-        pointer_group = QGroupBox("Mauszeiger-Empfindlichkeit")
+        pointer_group = QGroupBox(tr("settings.pointer_group"))
         p_layout = QVBoxLayout(pointer_group)
 
-        # Base Speed
-        p_layout.addWidget(QLabel("Zeiger-Geschwindigkeit:"))
+        p_layout.addWidget(QLabel(tr("settings.pointer_speed")))
         speed_box = QHBoxLayout()
         self.speed_slider = QSlider(Qt.Orientation.Horizontal)
-        self.speed_slider.setRange(10, 200) # 0.010 bis 0.200
+        self.speed_slider.setRange(10, 200)
         self.speed_label = QLabel()
         speed_box.addWidget(self.speed_slider)
         speed_box.addWidget(self.speed_label)
         p_layout.addLayout(speed_box)
 
-        # Deadzone
-        p_layout.addWidget(QLabel("Zitterfilter (Deadzone für Zeiger):"))
+        p_layout.addWidget(QLabel(tr("settings.deadzone")))
         dz_box = QHBoxLayout()
         self.dz_slider = QSlider(Qt.Orientation.Horizontal)
         self.dz_slider.setRange(5, 50)
@@ -40,28 +61,24 @@ class SettingsTabWidget(QWidget):
         dz_box.addWidget(self.dz_label)
         p_layout.addLayout(dz_box)
 
-        # 2D Mode Checkbox
-        self.mode_2d_check = QCheckBox("2D-Präzisionsmodus standardmäßig aktiv (ignoriert Kappen-Neigung)")
+        self.mode_2d_check = QCheckBox(tr("settings.mode_2d_default"))
         p_layout.addWidget(self.mode_2d_check)
 
         layout.addWidget(pointer_group)
 
-        # 2. Scroll-Einstellungen
-        scroll_group = QGroupBox("Scrollrad-Verhalten (Kappe drehen / Twist)")
+        scroll_group = QGroupBox(tr("settings.scroll_group"))
         s_layout = QVBoxLayout(scroll_group)
 
-        # Scroll Speed
-        s_layout.addWidget(QLabel("Scroll-Geschwindigkeit:"))
+        s_layout.addWidget(QLabel(tr("settings.scroll_speed")))
         sc_speed_box = QHBoxLayout()
         self.sc_speed_slider = QSlider(Qt.Orientation.Horizontal)
-        self.sc_speed_slider.setRange(10, 100) # 0.0010 bis 0.0100
+        self.sc_speed_slider.setRange(10, 100)
         self.sc_speed_label = QLabel()
         sc_speed_box.addWidget(self.sc_speed_slider)
         sc_speed_box.addWidget(self.sc_speed_label)
         s_layout.addLayout(sc_speed_box)
 
-        # Scroll Deadzone
-        s_layout.addWidget(QLabel("Scroll-Schwelle (Schutz gegen versehentliches Drehen beim Bewegen):"))
+        s_layout.addWidget(QLabel(tr("settings.scroll_threshold")))
         sc_dz_box = QHBoxLayout()
         self.sc_dz_slider = QSlider(Qt.Orientation.Horizontal)
         self.sc_dz_slider.setRange(40, 150)
@@ -72,7 +89,6 @@ class SettingsTabWidget(QWidget):
 
         layout.addWidget(scroll_group)
 
-        # Sliders Connect
         self.speed_slider.valueChanged.connect(self.on_speed_changed)
         self.dz_slider.valueChanged.connect(self.on_dz_changed)
         self.sc_speed_slider.valueChanged.connect(self.on_sc_speed_changed)
@@ -80,9 +96,15 @@ class SettingsTabWidget(QWidget):
         self.mode_2d_check.toggled.connect(self.on_mode_2d_toggled)
 
         layout.addStretch()
-
-        # Load values
         self.load_settings()
+
+    def on_language_changed(self, idx):
+        if self._loading or idx < 0:
+            return
+        code = self.lang_combo.itemData(idx)
+        self.config_mgr.set("ui_language", code)
+        self.config_mgr.save()
+        set_language(resolve_lang(code))
 
     def load_settings(self):
         self._loading = True
@@ -126,7 +148,7 @@ class SettingsTabWidget(QWidget):
         if self._loading:
             return
         sc_speed = val / 10000.0
-        self.speed_label.setText(f"{sc_speed:.4f}")
+        self.sc_speed_label.setText(f"{sc_speed:.4f}")
         self.config_mgr.set("scroll_speed", sc_speed)
         self.config_mgr.save()
 

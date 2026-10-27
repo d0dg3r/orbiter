@@ -10,7 +10,110 @@ CONFIG_DIR = Path.home() / ".config" / "orbiter"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 IPC_SOCKET = CONFIG_DIR / "orbiter.sock"
 
+# 1. Universelles Standard-Profil für alle Linux-Desktops (GNOME, KDE, Wayland, X11)
 DEFAULT_PROFILE_SETTINGS = {
+    "deadzone": 18,
+    "base_speed": 0.05,
+    "scroll_deadzone_twist": 90,
+    "scroll_speed": 0.003,
+    "move_cooldown": 0.15,
+    "mode_2d": True,
+    "buttons": {
+        "259": {
+            "name": "Linke Maustaste",
+            "type": "mouse",
+            "action": "BTN_LEFT",
+            "description": "Standard Linksklick"
+        },
+        "260": {
+            "name": "Rechte Maustaste",
+            "type": "mouse",
+            "action": "BTN_RIGHT",
+            "description": "Standard Rechtsklick"
+        },
+        "261": {
+            "name": "Mitteltaste",
+            "type": "mouse",
+            "action": "BTN_MIDDLE",
+            "description": "Mittlere Maustaste / Radklick"
+        },
+        "256": {
+            "name": "Zurück (1)",
+            "type": "mouse",
+            "action": "BTN_SIDE",
+            "description": "Browser / Dateimanager Zurück"
+        },
+        "257": {
+            "name": "Vorwärts (2)",
+            "type": "mouse",
+            "action": "BTN_EXTRA",
+            "description": "Browser / Dateimanager Vorwärts"
+        },
+        "267": {
+            "name": "PANEL",
+            "type": "key",
+            "action": "KEY_LEFTMETA",
+            "description": "Super / Startmenü / App-Starter"
+        },
+        "258": {
+            "name": "T",
+            "type": "key",
+            "action": "KEY_T",
+            "description": "Standard Taste T"
+        },
+        "266": {
+            "name": "FIT",
+            "type": "key",
+            "action": "KEY_HOME",
+            "description": "Ansicht zentrieren (Pos1 / Home)"
+        },
+        "270": {
+            "name": "2D",
+            "type": "builtin",
+            "action": "toggle_2d",
+            "description": "2D-Präzisionsmodus Toggle"
+        },
+        "268": {
+            "name": "+",
+            "type": "builtin",
+            "action": "speed_up",
+            "description": "Zeiger schneller (+25%)"
+        },
+        "269": {
+            "name": "-",
+            "type": "builtin",
+            "action": "speed_down",
+            "description": "Zeiger langsamer (-20%)"
+        },
+        "262": {
+            "name": "ESC",
+            "type": "key",
+            "action": "KEY_ESC",
+            "description": "Escape-Taste"
+        },
+        "263": {
+            "name": "ALT",
+            "type": "key",
+            "action": "KEY_LEFTALT",
+            "description": "Alt-Taste"
+        },
+        "264": {
+            "name": "SHIFT",
+            "type": "key",
+            "action": "KEY_LEFTSHIFT",
+            "description": "Shift-Taste"
+        },
+        "265": {
+            "name": "CTRL",
+            "type": "key",
+            "action": "KEY_LEFTCTRL",
+            "description": "Strg-Taste"
+        }
+    }
+}
+
+# 2. Persönliches Profil für Hyprland (Joe)
+HYPRLAND_JOE_PROFILE = {
     "deadzone": 18,
     "base_speed": 0.05,
     "scroll_deadzone_twist": 90,
@@ -113,6 +216,7 @@ DEFAULT_PROFILE_SETTINGS = {
 
 DEFAULT_PROFILES = {
     "Standard": DEFAULT_PROFILE_SETTINGS,
+    "Hyprland / Joe": HYPRLAND_JOE_PROFILE,
     "CAD / 3D": {
         "deadzone": 16,
         "base_speed": 0.055,
@@ -264,6 +368,13 @@ DEFAULT_PROFILES = {
 DEFAULT_CONFIG = {
     "device_name_pattern": "Space",
     "active_profile": "Standard",
+    "device_model_override": "auto",  # 'auto', 'compact', 'explorer', 'pro', 'enterprise'
+    "auto_switch_enabled": True,
+    "auto_rules": {
+        "CAD / 3D": ["freecad", "org.freecadweb.freecad", "blender", "gimp", "inkscape", "kicad", "prusa-slicer", "bambu-studio"],
+        "Browser / Medien": ["chromium", "firefox", "brave-browser", "google-chrome", "zen", "spotify", "vlc"],
+        "Hyprland / Joe": []
+    },
     "profiles": DEFAULT_PROFILES
 }
 
@@ -308,11 +419,21 @@ class ConfigManager:
                     "Standard": standard_profile
                 }
                 # Zusätzliche Beispielprofile hinzufügen wenn noch nicht vorhanden
-                for prof_name in ("CAD / 3D", "Browser / Medien"):
-                    if prof_name not in self.config["profiles"]:
-                        self.config["profiles"][prof_name] = json.loads(json.dumps(DEFAULT_PROFILES[prof_name]))
+            # Sicherstellen, dass Standard-Profile existieren (inkl. Hyprland / Joe)
+            profiles = self.config.setdefault("profiles", {})
+            if "Hyprland / Joe" not in profiles:
+                std_btn = profiles.get("Standard", {}).get("buttons", {})
+                if any(b.get("type") == "hyprland" for b in std_btn.values()):
+                    profiles["Hyprland / Joe"] = json.loads(json.dumps(profiles["Standard"]))
+                    profiles["Standard"] = json.loads(json.dumps(DEFAULT_PROFILE_SETTINGS))
+                    if self.config.get("active_profile") == "Standard":
+                        self.config["active_profile"] = "Hyprland / Joe"
+                else:
+                    profiles["Hyprland / Joe"] = json.loads(json.dumps(HYPRLAND_JOE_PROFILE))
 
-                self.config["active_profile"] = "Standard"
+            for prof_name, prof_data in DEFAULT_PROFILES.items():
+                if prof_name not in profiles:
+                    profiles[prof_name] = json.loads(json.dumps(prof_data))
 
             # Sicherstellen, dass active_profile existiert
             if "active_profile" not in self.config or self.config["active_profile"] not in self.config["profiles"]:
@@ -328,6 +449,7 @@ class ConfigManager:
                         p_data[k] = json.loads(json.dumps(v))
 
             self._sync_active_profile_to_root()
+            self.save()
 
         except Exception as e:
             print(f"[Config] Fehler beim Laden ({e}), lade Standardwerte.")
@@ -459,3 +581,66 @@ class ConfigManager:
             active_data = self.get_active_profile_data()
             active_data[key] = value
         self.config[key] = value
+
+    def get_auto_rules(self):
+        """Gibt das Mapping von Profilname -> Liste von Fenstermustern zurück."""
+        return self.config.setdefault("auto_rules", {
+            "CAD / 3D": ["freecad", "org.freecadweb.freecad", "blender", "gimp", "inkscape", "kicad", "prusa-slicer", "bambu-studio"],
+            "Browser / Medien": ["chromium", "firefox", "brave-browser", "google-chrome", "zen", "spotify", "vlc"],
+            "Hyprland / Joe": []
+        })
+
+    def is_auto_switch_enabled(self):
+        return self.config.get("auto_switch_enabled", True)
+
+    def set_auto_switch_enabled(self, enabled: bool):
+        self.config["auto_switch_enabled"] = bool(enabled)
+        self.save()
+
+    def get_profile_for_window(self, win_class: str, win_title: str = ""):
+        """Findet das passende Profil anhand der Fensterklasse oder des Titels."""
+        if not self.is_auto_switch_enabled() or not win_class:
+            return None
+        c_lower = win_class.lower()
+        t_lower = (win_title or "").lower()
+        rules = self.get_auto_rules()
+        for prof_name, patterns in rules.items():
+            if prof_name not in self.get_profiles():
+                continue
+            for pat in patterns:
+                pat_lower = pat.lower().strip()
+                if not pat_lower:
+                    continue
+                if pat_lower in c_lower or (t_lower and pat_lower in t_lower):
+                    return prof_name
+        return None
+
+    def add_rule_for_profile(self, profile_name: str, pattern: str):
+        pattern = pattern.strip().lower()
+        if not pattern:
+            return False
+        rules = self.get_auto_rules()
+        patterns = rules.setdefault(profile_name, [])
+        if pattern not in patterns:
+            patterns.append(pattern)
+            self.save()
+            return True
+        return False
+
+    def remove_rule_for_profile(self, profile_name: str, pattern: str):
+        pattern = pattern.strip().lower()
+        rules = self.get_auto_rules()
+        patterns = rules.get(profile_name, [])
+        if pattern in patterns:
+            patterns.remove(pattern)
+            self.save()
+            return True
+        return False
+
+    def get_model_override(self):
+        return self.config.get("device_model_override", "auto")
+
+    def set_model_override(self, model_id: str):
+        self.config["device_model_override"] = model_id
+        self.save()
+
