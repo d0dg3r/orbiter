@@ -35,21 +35,26 @@ class LiveMonitorThread(QThread):
         try:
             client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             client.connect(str(IPC_SOCKET))
+            # Opt into live axis/button broadcasts (command clients stay quiet)
+            client.sendall(b"SUBSCRIBE\n")
             buf = ""
             while not self.isInterruptionRequested():
-                data = client.recv(1024)
+                data = client.recv(8192)
                 if not data:
                     break
                 buf += data.decode("utf-8", errors="ignore")
                 while "\n" in buf:
                     line, buf = buf.split("\n", 1)
                     line = line.strip()
-                    if line:
-                        try:
-                            ev = json.loads(line)
-                            self.event_received.emit(ev)
-                        except json.JSONDecodeError:
-                            pass
+                    if not line or line == "OK":
+                        continue
+                    try:
+                        ev = json.loads(line)
+                        if "type" not in ev:
+                            continue
+                        self.event_received.emit(ev)
+                    except json.JSONDecodeError:
+                        pass
         except Exception:
             pass
 
@@ -91,8 +96,10 @@ class LiveMonitorWidget(QWidget):
             grid.addWidget(name_lbl, row, 0)
             self._axis_name_labels[code] = name_lbl
 
+            # Magnitude only (0–400). A signed Qt range would show value 0 as
+            # a half-filled bar, which looks like a stuck/faulty sensor at rest.
             bar = QProgressBar()
-            bar.setRange(-400, 400)
+            bar.setRange(0, 400)
             bar.setValue(0)
             bar.setTextVisible(False)
             bar.setFixedHeight(12)
@@ -158,7 +165,7 @@ class LiveMonitorWidget(QWidget):
             code = ev.get("code")
             val = ev.get("value", 0)
             if code in self.bars:
-                self.bars[code].setValue(max(-400, min(400, val)))
+                self.bars[code].setValue(min(400, abs(int(val))))
                 sign = "+" if val > 0 else ""
                 self.val_labels[code].setText(f"{sign}{val}")
 

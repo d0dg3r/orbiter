@@ -37,8 +37,9 @@ class OrbiterDaemon:
         self.mode_2d = self.config_mgr.get("mode_2d", True)
         self.base_speed = self.config_mgr.get("base_speed", 0.05)
 
-        # IPC Clients (GUI live monitor)
+        # IPC: all connected sockets for commands; only subscribers get live events
         self.ipc_clients = []
+        self.ipc_subscribers = []
         self.ipc_lock = threading.Lock()
 
         # Window Watcher for Auto-Profile-Switching
@@ -157,15 +158,17 @@ class OrbiterDaemon:
                             self.ipc_clients.append(client)
                     else:
                         try:
-                            data = s.recv(1024)
+                            data = s.recv(8192)
                             if not data:
-                                with self.ipc_lock:
-                                    if s in self.ipc_clients:
-                                        self.ipc_clients.remove(s)
-                                s.close()
+                                self._drop_ipc_client(s)
                                 continue
                             msg = data.decode("utf-8").strip()
-                            if msg == "GET_STATUS":
+                            if msg == "SUBSCRIBE":
+                                with self.ipc_lock:
+                                    if s not in self.ipc_subscribers:
+                                        self.ipc_subscribers.append(s)
+                                s.sendall(b"OK\n")
+                            elif msg == "GET_STATUS":
                                 override = self.config_mgr.get_model_override()
                                 if override != "auto" and override in DEVICE_MODELS:
                                     effective_model = DEVICE_MODELS[override]
@@ -218,28 +221,44 @@ class OrbiterDaemon:
                                 self.prev_profile()
                                 s.sendall(b"OK\n")
                         except Exception:
-                            with self.ipc_lock:
-                                if s in self.ipc_clients:
-                                    self.ipc_clients.remove(s)
-                            s.close()
+                            self._drop_ipc_client(s)
 
         t = threading.Thread(target=ipc_worker, daemon=True)
         t.start()
 
-    def broadcast_event(self, event_data):
-        """Send live events to connected GUI monitors."""
+    def _drop_ipc_client(self, client):
+        """Remove a socket from command and subscriber lists, then close it."""
         with self.ipc_lock:
-            if not self.ipc_clients:
+            if client in self.ipc_clients:
+                self.ipc_clients.remove(client)
+            if client in self.ipc_subscribers:
+                self.ipc_subscribers.remove(client)
+        try:
+            client.close()
+        except Exception:
+            pass
+
+    def broadcast_event(self, event_data):
+        """Send live events only to clients that sent SUBSCRIBE."""
+        with self.ipc_lock:
+            if not self.ipc_subscribers:
                 return
             msg = (json.dumps(event_data) + "\n").encode("utf-8")
             dead = []
-            for client in self.ipc_clients:
+            for client in self.ipc_subscribers:
                 try:
                     client.sendall(msg)
                 except Exception:
                     dead.append(client)
             for d in dead:
-                self.ipc_clients.remove(d)
+                if d in self.ipc_subscribers:
+                    self.ipc_subscribers.remove(d)
+                if d in self.ipc_clients:
+                    self.ipc_clients.remove(d)
+                try:
+                    d.close()
+                except Exception:
+                    pass
 
     def curve(self, val, deadzone):
         if abs(val) <= deadzone:
@@ -263,15 +282,20 @@ class OrbiterDaemon:
             scroll_deadzone = self.config_mgr.get("scroll_deadzone_twist", 90)
             scroll_speed = self.config_mgr.get("scroll_speed", 0.003)
             move_cooldown = self.config_mgr.get("move_cooldown", 0.15)
+            tilt_blend = float(self.config_mgr.get("tilt_blend", 0.4))
+            lift_scroll = bool(self.config_mgr.get("lift_scroll_enabled", True))
+            lift_deadzone = self.config_mgr.get("scroll_deadzone_lift", 90)
 
             with self.axes_lock:
                 if self.mode_2d:
                     raw_x = self.axes[0]
                     raw_y = self.axes[2]
                 else:
-                    raw_x = self.axes[0] + int(self.axes[4] * 0.4)
-                    raw_y = self.axes[2] - int(self.axes[3] * 0.4)
+                    # Pitch (3) / Roll (4) blend into pointer when hybrid is on
+                    raw_x = self.axes[0] + int(self.axes[4] * tilt_blend)
+                    raw_y = self.axes[2] - int(self.axes[3] * tilt_blend)
                 raw_twist = self.axes[5]
+                raw_lift = self.axes[1]
 
             cur_x = self.curve(raw_x, deadzone)
             cur_y = self.curve(raw_y, deadzone)
@@ -295,13 +319,21 @@ class OrbiterDaemon:
                 # Scroll only when pointer is idle and cooldown has elapsed
                 if (now - last_move_time) > move_cooldown:
                     if abs(raw_twist) > scroll_deadzone:
-                        twist_diff = raw_twist - (scroll_deadzone if raw_twist > 0 else -scroll_deadzone)
+                        twist_diff = raw_twist - (
+                            scroll_deadzone if raw_twist > 0 else -scroll_deadzone
+                        )
                         scroll_acc += twist_diff * scroll_speed
-                        ticks = int(scroll_acc)
-                        if ticks != 0:
-                            self.vmouse.write(e.EV_REL, e.REL_WHEEL, ticks)
-                            self.vmouse.syn()
-                            scroll_acc -= ticks
+                    if lift_scroll and abs(raw_lift) > lift_deadzone:
+                        # Positive lift (cap up) → scroll up (positive REL_WHEEL)
+                        lift_diff = raw_lift - (
+                            lift_deadzone if raw_lift > 0 else -lift_deadzone
+                        )
+                        scroll_acc += lift_diff * scroll_speed
+                    ticks = int(scroll_acc)
+                    if ticks != 0:
+                        self.vmouse.write(e.EV_REL, e.REL_WHEEL, ticks)
+                        self.vmouse.syn()
+                        scroll_acc -= ticks
 
             time.sleep(1.0 / 60.0)
 

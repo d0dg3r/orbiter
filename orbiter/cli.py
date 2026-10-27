@@ -13,18 +13,40 @@ from orbiter.conflicts import spacenavd_running, check_spacenavd_conflict
 from orbiter.i18n import init_from_config, tr
 
 
-def send_ipc(command):
+def send_ipc(command, timeout=2.0):
     if not IPC_SOCKET.exists():
         print(tr("cli.daemon_not_running"))
         return None
     try:
         client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        client.settimeout(1.0)
+        client.settimeout(timeout)
         client.connect(str(IPC_SOCKET))
         client.sendall((command + "\n").encode("utf-8"))
-        resp = client.recv(1024).decode("utf-8").strip()
+        want_status = command.strip() == "GET_STATUS"
+        buf = ""
+        while True:
+            chunk = client.recv(8192)
+            if not chunk:
+                break
+            buf += chunk.decode("utf-8", errors="ignore")
+            while "\n" in buf:
+                line, buf = buf.split("\n", 1)
+                line = line.strip()
+                if not line:
+                    continue
+                if want_status:
+                    try:
+                        obj = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(obj, dict) and "connected" in obj:
+                        client.close()
+                        return line
+                    continue
+                client.close()
+                return line
         client.close()
-        return resp
+        return None
     except Exception as e:
         print(tr("cli.ipc_error", error=e))
         return None
