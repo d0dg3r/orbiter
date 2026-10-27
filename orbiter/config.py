@@ -10,7 +10,7 @@ CONFIG_DIR = Path.home() / ".config" / "orbiter"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 IPC_SOCKET = CONFIG_DIR / "orbiter.sock"
 
-# 1. Universelles Standard-Profil für alle Linux-Desktops (GNOME, KDE, Wayland, X11)
+# 1. Default profile for generic Linux desktops (GNOME, KDE, Wayland, X11)
 DEFAULT_PROFILE_SETTINGS = {
     "deadzone": 18,
     "base_speed": 0.05,
@@ -112,7 +112,7 @@ DEFAULT_PROFILE_SETTINGS = {
     }
 }
 
-# 2. Persönliches Profil für Hyprland (Joe)
+# 2. Personal Hyprland profile (Joe)
 HYPRLAND_JOE_PROFILE = {
     "deadzone": 18,
     "base_speed": 0.05,
@@ -403,7 +403,7 @@ class ConfigManager:
                 self.config = json.load(f)
             self.last_mtime = self.path.stat().st_mtime
 
-            # Migration: Falls alte config.json ohne "profiles" geladen wird
+            # Migration: legacy config.json without "profiles"
             if "profiles" not in self.config or not isinstance(self.config["profiles"], dict):
                 migrated_buttons = self.config.get("buttons", DEFAULT_PROFILE_SETTINGS["buttons"])
                 standard_profile = {
@@ -418,8 +418,8 @@ class ConfigManager:
                 self.config["profiles"] = {
                     "Standard": standard_profile
                 }
-                # Zusätzliche Beispielprofile hinzufügen wenn noch nicht vorhanden
-            # Sicherstellen, dass Standard-Profile existieren (inkl. Hyprland / Joe)
+                # Extra sample profiles when missing (handled below)
+            # Ensure default profiles exist (incl. Hyprland / Joe)
             profiles = self.config.setdefault("profiles", {})
             if "Hyprland / Joe" not in profiles:
                 std_btn = profiles.get("Standard", {}).get("buttons", {})
@@ -435,12 +435,12 @@ class ConfigManager:
                 if prof_name not in profiles:
                     profiles[prof_name] = json.loads(json.dumps(prof_data))
 
-            # Sicherstellen, dass active_profile existiert
+            # Ensure active_profile is valid
             if "active_profile" not in self.config or self.config["active_profile"] not in self.config["profiles"]:
                 first_prof = next(iter(self.config["profiles"].keys()), "Standard")
                 self.config["active_profile"] = first_prof
 
-            # Sicherstellen, dass fehlende Felder in Profilen mit Defaults aufgefüllt werden
+            # Fill missing profile fields from defaults
             for p_name, p_data in self.config["profiles"].items():
                 if not isinstance(p_data, dict):
                     continue
@@ -458,7 +458,7 @@ class ConfigManager:
         return self.config
 
     def _sync_active_profile_to_root(self):
-        """Spiegelt die aktiven Profil-Einstellungen in die Top-Level-Keys für volle Rückwärtskompatibilität."""
+        """Mirror active profile settings to top-level keys for backward compatibility."""
         active_data = self.get_active_profile_data()
         for k in PROFILE_SETTINGS_KEYS:
             if k in active_data:
@@ -481,6 +481,45 @@ class ConfigManager:
             json.dump(self.config, f, indent=4, ensure_ascii=False)
         tmp_file.replace(self.path)
         self.last_mtime = self.path.stat().st_mtime
+
+    def export_config(self, path):
+        """Write current config as pretty JSON to path."""
+        path = Path(path).expanduser()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self._sync_active_profile_to_root()
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.config, f, indent=4, ensure_ascii=False)
+        return path
+
+    def import_config(self, path, backup=True):
+        """
+        Load config from path, validate structure, replace live config.
+        Backs up to config.json.bak-<timestamp> before overwrite when backup=True.
+        """
+        path = Path(path).expanduser()
+        if not path.is_file():
+            raise FileNotFoundError(str(path))
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("Config root must be a JSON object")
+        profiles = data.get("profiles")
+        if not isinstance(profiles, dict) or not profiles:
+            raise ValueError("Config must contain a non-empty 'profiles' object")
+        active = data.get("active_profile")
+        if not active or active not in profiles:
+            data["active_profile"] = next(iter(profiles.keys()))
+
+        if backup and self.path.exists():
+            from datetime import datetime
+            stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            bak = self.path.with_name(f"config.json.bak-{stamp}")
+            bak.write_text(self.path.read_text(encoding="utf-8"), encoding="utf-8")
+
+        self.config = data
+        self._sync_active_profile_to_root()
+        self.save()
+        return self.config
 
     def get_profiles(self):
         return self.config.setdefault("profiles", {})
@@ -583,7 +622,7 @@ class ConfigManager:
         self.config[key] = value
 
     def get_auto_rules(self):
-        """Gibt das Mapping von Profilname -> Liste von Fenstermustern zurück."""
+        """Return profile name -> list of window pattern strings."""
         return self.config.setdefault("auto_rules", {
             "CAD / 3D": ["freecad", "org.freecadweb.freecad", "blender", "gimp", "inkscape", "kicad", "prusa-slicer", "bambu-studio"],
             "Browser / Medien": ["chromium", "firefox", "brave-browser", "google-chrome", "zen", "spotify", "vlc"],
@@ -598,7 +637,7 @@ class ConfigManager:
         self.save()
 
     def get_profile_for_window(self, win_class: str, win_title: str = ""):
-        """Findet das passende Profil anhand der Fensterklasse oder des Titels."""
+        """Pick a profile from window class or title."""
         if not self.is_auto_switch_enabled() or not win_class:
             return None
         c_lower = win_class.lower()

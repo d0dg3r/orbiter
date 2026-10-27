@@ -42,6 +42,8 @@ contents:
     dst: /usr/lib/orbiter
   - src: packaging/staging/usr/lib/systemd/user/orbiter.service
     dst: /usr/lib/systemd/user/orbiter.service
+  - src: packaging/staging/usr/lib/systemd/user/orbiter-tray.service
+    dst: /usr/lib/systemd/user/orbiter-tray.service
   - src: packaging/staging/usr/share/applications/orbiter.desktop
     dst: /usr/share/applications/orbiter.desktop
   - src: packaging/staging/usr/share/icons/hicolor/scalable/apps/orbiter.svg

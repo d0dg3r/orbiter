@@ -19,6 +19,8 @@ Orbiter macht aus 3Dconnexion-6DoF-Geräten (SpaceExplorer, SpaceNavigator, Spac
 - **Auto-Profile:** Wechsel nach aktivem Fenster (Hyprland / X11)
 - **Dunkle PyQt6-GUI** mit Live-Hardware-Monitor
 - **Live-Config-Reload** ohne Daemon-Neustart
+- **Config Export / Import** — JSON-Backup über Einstellungen oder `orbiter config`
+- **Tray beim Login** — `orbiter-tray.service` (Daemon bleibt `orbiter.service`)
 - **DE / EN Oberfläche** — Sprache folgt dem System oder Einstellungen → Sprache
 
 ---
@@ -51,6 +53,7 @@ sudo pacman -U ./dist/orbiter-*-x86_64.pkg.tar.zst
 sudo usermod -aG input "$USER"   # danach neu anmelden
 systemctl --user daemon-reload
 systemctl --user enable --now orbiter
+systemctl --user enable --now orbiter-tray
 ```
 
 Details: [packaging/README.md](packaging/README.md)
@@ -73,13 +76,17 @@ GitHub-Release aus einem lokalen Build:
 
 ```bash
 orbiter                 # GUI + Tray
+orbiter --tray          # nur Tray (auch via orbiter-tray.service)
 orbiter status          # Verbindung, Profil, spacenavd-Konflikt
 orbiter profile next    # Profil wechseln
 orbiter 2d              # 2D-Modus umschalten
+orbiter config export [pfad]   # Default: ~/orbiter-config-YYYYMMDD.json
+orbiter config import <pfad>   # ersetzt Config; Daemon bekommt RELOAD
 orbiter restart         # User-Dienst neu starten
 ```
 
-Konfiguration: `~/.config/orbiter/config.json`
+Konfiguration: `~/.config/orbiter/config.json`  
+Export/Import auch unter **Einstellungen → Konfigurations-Backup**.
 
 ---
 

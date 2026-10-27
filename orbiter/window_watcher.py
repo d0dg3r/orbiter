@@ -1,6 +1,6 @@
 """
-Active Window Watcher & Event Listener for Linux Desktop (Hyprland, Wayland & X11)
-Erkennt automatisch das aktive Programmfenster für dynamisches Profil-Switching.
+Active window watcher and event listener for Linux (Hyprland, Wayland, X11).
+Detects the focused window for dynamic profile switching.
 """
 import os
 import json
@@ -23,7 +23,7 @@ class WindowWatcher:
         self._has_xprop = shutil.which("xprop") is not None
 
     def start(self):
-        """Startet den Window-Watcher im Hintergrund-Thread."""
+        """Start the window watcher on a background thread."""
         if self._running:
             return
         self._running = True
@@ -31,15 +31,15 @@ class WindowWatcher:
         self._thread.start()
 
     def stop(self):
-        """Stoppt die Überwachung."""
+        """Stop watching."""
         self._running = False
 
     def get_active_window(self):
         """
-        Fragt das aktuell fokussierte Fenster synchron ab.
-        Gibt ein Dict zurück: {"class": ..., "title": ...}
+        Query the focused window synchronously.
+        Returns {"class": ..., "title": ...}.
         """
-        # 1. Hyprland Abfrage
+        # 1. Hyprland
         if self._has_hyprctl:
             try:
                 res = subprocess.run(
@@ -55,7 +55,7 @@ class WindowWatcher:
             except Exception:
                 pass
 
-        # 2. X11 / XWayland Fallback über xdotool
+        # 2. X11 / XWayland fallback via xdotool
         if self._has_xdotool and self._has_xprop:
             try:
                 wid_res = subprocess.run(["xdotool", "getactivewindow"], capture_output=True, text=True, timeout=0.5)
@@ -73,8 +73,8 @@ class WindowWatcher:
         return {"class": "", "title": ""}
 
     def _run_loop(self):
-        """Event-Loop: Nutzt Hyprland Socket2 falls vorhanden, sonst schlankes Polling."""
-        # Prüfen auf Hyprland Event Socket (.socket2.sock)
+        """Event loop: Hyprland socket2 when available, else light polling."""
+        # Hyprland event socket (.socket2.sock)
         hypr_sock_path = self._find_hyprland_socket2()
         if hypr_sock_path and os.path.exists(hypr_sock_path):
             self._listen_hyprland_socket(hypr_sock_path)
@@ -89,7 +89,7 @@ class WindowWatcher:
             if os.path.exists(cand):
                 return cand
 
-        # Suche in /run/user/<uid>/hypr/*/
+        # Search /run/user/<uid>/hypr/*/
         hypr_base = os.path.join(runtime_dir, "hypr")
         if os.path.isdir(hypr_base):
             for entry in os.listdir(hypr_base):
@@ -99,7 +99,7 @@ class WindowWatcher:
         return None
 
     def _listen_hyprland_socket(self, sock_path):
-        """Echtzeit-Event-Listener für Hyprland: 0% CPU, sofortige Reaktion."""
+        """Hyprland realtime listener: low CPU, immediate updates."""
         while self._running:
             try:
                 sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -107,7 +107,7 @@ class WindowWatcher:
                 sock.settimeout(2.0)
                 buffer = ""
 
-                # Einmaliger Initial-Check
+                # One-time initial sync
                 info = self.get_active_window()
                 self._dispatch(info)
 
@@ -146,7 +146,7 @@ class WindowWatcher:
             time.sleep(0.5)
 
     def _poll_fallback(self):
-        """Sanftes Polling (alle 400ms) für Umgebungen ohne Event-Socket."""
+        """Light polling (every 400ms) when no event socket exists."""
         while self._running:
             try:
                 info = self.get_active_window()

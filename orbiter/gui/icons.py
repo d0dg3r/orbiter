@@ -162,7 +162,7 @@ def get_pixmap(name, color="#94a3b8", size=18):
     return pixmap
 
 def get_icon(name, color="#94a3b8", active_color="#38bdf8", size=20):
-    """Gibt ein QIcon mit Normal- und Active-Farbe zurück."""
+    """Return a QIcon with normal and active colors."""
     icon = QIcon()
     pm_normal = get_pixmap(name, color=color, size=size)
     pm_active = get_pixmap(name, color=active_color, size=size)

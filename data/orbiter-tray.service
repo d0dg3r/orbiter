@@ -1,0 +1,13 @@
+[Unit]
+Description=Orbiter Tray GUI
+After=graphical-session.target orbiter.service
+Wants=orbiter.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/orbiter --tray
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

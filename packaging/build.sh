@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Baut Orbiter-Pakete: .deb, .rpm, Arch .pkg.tar.zst
-# Voraussetzung: nfpm (https://nfpm.goreleaser.com/)
+# Build Orbiter packages: .deb, .rpm, Arch .pkg.tar.zst
+# Requires nfpm (https://nfpm.goreleaser.com/)
 set -euo pipefail
 
 export PATH="/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin:${PATH:-}"
@@ -37,17 +37,17 @@ mkdir -p \
     "$STAGING/usr/lib/udev/rules.d" \
     "$DIST"
 
-# Python-Package nach /usr/lib/orbiter (distro-unabhängig, site-packages nicht nötig)
+# Python package to /usr/lib/orbiter (distro-neutral, no site-packages)
 rsync -a --delete \
     --exclude '__pycache__' \
     --exclude '*.pyc' \
     --exclude '*.pyo' \
     "$ROOT/orbiter/" "$STAGING/usr/lib/orbiter/orbiter/"
 
-# CLI-Wrapper: systemweite PyQt6/evdev aus Distro-Paketen, Code aus /usr/lib/orbiter
+# CLI wrapper: PyQt6/evdev from distro packages, code from /usr/lib/orbiter
 cat > "$STAGING/usr/bin/orbiter" << 'EOF'
 #!/usr/bin/python3
-"""Orbiter System-Entrypoint (Distro-Paket)."""
+"""Orbiter system entrypoint (distro package)."""
 import sys
 sys.path.insert(0, "/usr/lib/orbiter")
 from orbiter.cli import main
@@ -57,14 +57,15 @@ EOF
 chmod 755 "$STAGING/usr/bin/orbiter"
 
 cp "$ROOT/data/orbiter.service" "$STAGING/usr/lib/systemd/user/orbiter.service"
+cp "$ROOT/data/orbiter-tray.service" "$STAGING/usr/lib/systemd/user/orbiter-tray.service"
 cp "$ROOT/data/orbiter.desktop" "$STAGING/usr/share/applications/orbiter.desktop"
 cp "$ROOT/data/icons/orbiter.svg" "$STAGING/usr/share/icons/hicolor/scalable/apps/orbiter.svg"
 cp "$ROOT/data/udev/99-orbiter-uinput.rules" "$STAGING/usr/lib/udev/rules.d/99-orbiter-uinput.rules"
 
-# Version in nfpm-Spec einsetzen (nfpm ersetzt ${VERSION} nicht von allein)
+# Inject version into nfpm spec (nfpm does not expand ${VERSION} itself)
 sed "s/\${VERSION}/${VERSION}/g" "$SCRIPT_DIR/nfpm.yaml" > "$NFPM_CONFIG"
 
-# Relative Pfade in nfpm.yaml beziehen sich auf Repo-Root
+# Relative paths in nfpm.yaml are from repo root
 cd "$ROOT"
 
 for fmt in deb rpm archlinux; do

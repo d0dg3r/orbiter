@@ -1,13 +1,13 @@
 """
-Dynamische DE/EN/…-Lokalisierung für Orbiter.
+Dynamic localization for Orbiter (DE/EN/…).
 
-Sprachen = alle Dateien unter orbiter/locales/<code>.json.
-Fallback-Katalog: en.json. Meta-Feld _meta.native_name für Anzeigenamen.
+Languages = all files under orbiter/locales/<code>.json.
+Fallback catalog: en.json. _meta.native_name for display names.
 
-Sprache aus (Priorität):
-  1. Umgebungsvariable ORBITER_LANG
-  2. Config-Schlüssel ui_language (code|auto)
-  3. System-Locale (LANG / LC_MESSAGES)
+Language resolution (priority):
+  1. ORBITER_LANG environment variable
+  2. Config key ui_language (code|auto)
+  3. System locale (LANG / LC_MESSAGES)
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def _locale_path(code: str) -> Path:
 
 
 def available_languages() -> list[str]:
-    """Alle Sprachcodes aus locales/*.json (ohne führendes _)."""
+    """All language codes from locales/*.json (excluding leading _)."""
     if not _LOCALES_DIR.is_dir():
         return ["en"]
     codes = sorted(
@@ -38,7 +38,7 @@ def available_languages() -> list[str]:
         if p.is_file() and not p.stem.startswith("_")
     )
     if "en" not in codes and not _locale_path("en").is_file():
-        # Mindestens en erwarten — Warnung nur wenn gar nichts da
+        # Expect en at minimum — warn only when nothing is present
         if not codes:
             return ["en"]
     elif "en" not in codes:
@@ -68,7 +68,7 @@ def _load_catalog(lang: str) -> tuple[dict[str, str], dict[str, Any]]:
 
 
 def language_native_name(code: str) -> str:
-    """Anzeigename der Sprache (aus _meta.native_name), sonst Code."""
+    """Display name of the language (_meta.native_name), else the code."""
     raw = _load_raw(code)
     meta = raw.get("_meta") if isinstance(raw.get("_meta"), dict) else {}
     name = meta.get("native_name")
@@ -76,12 +76,12 @@ def language_native_name(code: str) -> str:
 
 
 def _match_lang_prefix(value: str) -> Optional[str]:
-    """Mappt 'de_CH.UTF-8' / 'en' auf einen bekannten Locale-Code."""
+    """Map 'de_CH.UTF-8' / 'en' to a known locale code."""
     val = (value or "").strip().lower().replace("-", "_")
     if not val:
         return None
     codes = available_languages()
-    # Exakt
+    # Exact match
     primary = val.split(".")[0]
     if primary in codes:
         return primary
@@ -147,7 +147,7 @@ def _notify_listeners() -> None:
 
 
 def set_language(lang: str) -> str:
-    """Lädt den Katalog. Fehlende Keys aus en auffüllen."""
+    """Load the catalog; fill missing keys from en."""
     global _catalog, _meta, _lang
     codes = available_languages()
     lang = (lang or "en").lower()
@@ -171,7 +171,7 @@ def get_language() -> str:
 
 
 def tr(key: str, **kwargs: Any) -> str:
-    """Übersetzt einen Message-Key; optionale .format(**kwargs)."""
+    """Translate a message key; optional .format(**kwargs)."""
     if not _catalog:
         set_language(detect_system_lang())
     text = _catalog.get(key, key)

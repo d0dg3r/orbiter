@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Baut Orbiter-Pakete lokal (einmal) und veröffentlicht sie als GitHub-Release-Assets.
-# Nutzung:
-#   ./packaging/release.sh              # Version aus pyproject.toml
+# Build Orbiter packages once locally and publish as GitHub release assets.
+# Usage:
+#   ./packaging/release.sh              # version from pyproject.toml
 #   VERSION=0.2.0 ./packaging/release.sh
-#   ./packaging/release.sh --dry-run    # nur bauen, kein Upload
+#   ./packaging/release.sh --dry-run    # build only, no upload
 set -euo pipefail
 
 export PATH="/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin:${HOME}/go/bin:${PATH:-}"
@@ -47,7 +47,7 @@ ASSETS=(
     "$DIST"/orbiter-"${VERSION}"*.rpm
     "$DIST"/orbiter-"${VERSION}"*.pkg.tar.zst
 )
-# Fallback: alle orbiter-Artefakte in dist/
+# Fallback: any orbiter artifacts in dist/
 if [[ ${#ASSETS[@]} -eq 0 ]]; then
     ASSETS=("$DIST"/orbiter_*.deb "$DIST"/orbiter-*.rpm "$DIST"/orbiter-*.pkg.tar.zst)
 fi
@@ -95,7 +95,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     exit 0
 fi
 
-# Tag lokal + auf github Remote
+# Tag locally and push to github remote
 if ! git rev-parse "$TAG" >/dev/null 2>&1; then
     git tag -a "$TAG" -m "Orbiter ${TAG}"
     echo "[✓] Tag ${TAG} erstellt"

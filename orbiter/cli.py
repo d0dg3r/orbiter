@@ -5,6 +5,8 @@ import sys
 import socket
 import json
 import subprocess
+from datetime import datetime
+from pathlib import Path
 
 from orbiter.config import ConfigManager, IPC_SOCKET
 from orbiter.conflicts import spacenavd_running, check_spacenavd_conflict
@@ -123,6 +125,37 @@ def cmd_restart():
     print(tr("cli.restarted"))
 
 
+def cmd_config():
+    mgr = ConfigManager()
+    if len(sys.argv) < 3:
+        print(tr("cli.config_usage"))
+        return
+    action = sys.argv[2].lower()
+    if action == "export":
+        if len(sys.argv) > 3:
+            path = Path(sys.argv[3]).expanduser()
+        else:
+            stamp = datetime.now().strftime("%Y%m%d")
+            path = Path.home() / f"orbiter-config-{stamp}.json"
+        out = mgr.export_config(path)
+        print(tr("cli.config_exported", path=out))
+    elif action == "import":
+        if len(sys.argv) < 4:
+            print(tr("cli.config_import_need_path"), file=sys.stderr)
+            sys.exit(1)
+        path = Path(sys.argv[3]).expanduser()
+        try:
+            mgr.import_config(path)
+        except Exception as e:
+            print(tr("settings.import_fail", error=e), file=sys.stderr)
+            sys.exit(1)
+        send_ipc("RELOAD")
+        print(tr("cli.config_imported", path=path))
+    else:
+        print(tr("cli.unknown", cmd=f"config {action}"))
+        print(tr("cli.config_usage"))
+
+
 def print_help():
     print(tr("cli.help"))
 
@@ -144,6 +177,8 @@ def main():
         cmd_profile()
     elif sub in ("2d", "toggle"):
         cmd_toggle_2d()
+    elif sub in ("config",):
+        cmd_config()
     elif sub in ("reload",):
         cmd_reload()
     elif sub in ("restart",):

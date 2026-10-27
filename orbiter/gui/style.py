@@ -348,7 +348,7 @@ QMenu::separator {
 """
 
 def make_combo_opaque(combo):
-    """Verhindert zuverlässig Transparenz-Bugs bei QComboBox Dropdowns unter Wayland."""
+    """Avoid QComboBox dropdown transparency glitches on Wayland."""
     from PyQt6.QtCore import Qt
     view = combo.view()
     view.setAutoFillBackground(True)

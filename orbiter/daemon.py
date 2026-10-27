@@ -46,7 +46,7 @@ class OrbiterDaemon:
         self.last_auto_switched_profile = None
 
     def on_active_window_changed(self, info):
-        """Wird ausgelöst, wenn der Benutzer zu einem anderen Fenster wechselt."""
+        """Called when the user switches to another window."""
         w_class = info.get("class", "")
         w_title = info.get("title", "")
         target_profile = self.config_mgr.get_profile_for_window(w_class, w_title)
@@ -64,7 +64,7 @@ class OrbiterDaemon:
 
     def notify_profile_change(self, profile_name):
         try:
-            # Dev-Repo: …/orbiter/data/icons/; Paket: /usr/share/icons/…/orbiter.svg
+            # Dev repo: …/orbiter/data/icons/; package: /usr/share/icons/…/orbiter.svg
             repo_icon = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)), "data", "icons", "orbiter.svg"
             )
@@ -137,7 +137,7 @@ class OrbiterDaemon:
         print(tr("daemon.uinput"))
 
     def start_ipc_server(self):
-        """Erstellt einen Unix Domain Socket für Kommunikation mit der GUI."""
+        """Create a Unix domain socket for GUI communication."""
         if IPC_SOCKET.exists():
             IPC_SOCKET.unlink()
 
@@ -227,7 +227,7 @@ class OrbiterDaemon:
         t.start()
 
     def broadcast_event(self, event_data):
-        """Sendet Live-Events an verbundene GUI-Monitore."""
+        """Send live events to connected GUI monitors."""
         with self.ipc_lock:
             if not self.ipc_clients:
                 return
@@ -249,7 +249,7 @@ class OrbiterDaemon:
         return sign * (d + (d * d * 0.002))
 
     def ticker_loop(self):
-        """60 Hz Ticker für flüssigen Mauszeiger und strikte Scroll-Sperre."""
+        """60 Hz ticker for smooth pointer motion and strict scroll gating."""
         scroll_acc = 0.0
         last_move_time = 0.0
 
@@ -292,7 +292,7 @@ class OrbiterDaemon:
                 scroll_acc = 0.0
                 self.vmouse.syn()
             else:
-                # Scrollen NUR wenn Zeiger steht und Cooldown abgelaufen ist
+                # Scroll only when pointer is idle and cooldown has elapsed
                 if (now - last_move_time) > move_cooldown:
                     if abs(raw_twist) > scroll_deadzone:
                         twist_diff = raw_twist - (scroll_deadzone if raw_twist > 0 else -scroll_deadzone)

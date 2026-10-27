@@ -1,6 +1,6 @@
 """
-Hardware Device Scanner, Model Database & Connection Handler for 3Dconnexion Devices
-Erkennt angeschlossene 3D-Mäuse, deren Tastenanzahl und Modell-Spezifikationen.
+Hardware device scanner, model database, and connection handler for 3Dconnexion devices.
+Detects attached 3D mice, button counts, and model specs.
 """
 import time
 import evdev
@@ -8,9 +8,9 @@ from evdev import InputDevice
 
 from orbiter.i18n import tr
 
-# Bekannte 3Dconnexion Hardware-Modelle mit Tasten-Layouts
-# Tasten-Codes basieren auf evdev (256 = BTN_0, 257 = BTN_1, ...)
-# Kurznamen = Hardware-Labels (sprachneutral); UI-Beschreibungen via localized_button_info / locales
+# Known 3Dconnexion models and button layouts
+# Button codes follow evdev (256 = BTN_0, 257 = BTN_1, ...)
+# Short names = hardware labels (language-neutral); UI text via localized_button_info / locales
 DEVICE_MODELS = {
     "compact": {
         "id": "compact",
@@ -79,7 +79,7 @@ DEVICE_MODELS = {
 
 
 def localized_button_info(code, fallback=None):
-    """Hardware-Kurzname + übersetzte Beschreibung für die UI."""
+    """Hardware short name plus translated description for the UI."""
     fb = fallback or {}
     code_s = str(code)
     name = fb.get("name") or tr(f"device.btn.{code_s}.name")
@@ -101,11 +101,11 @@ KNOWN_NAMES = [
 ]
 
 def find_spacemouse_device():
-    """Findet die echte physische 3D-Maus (ignoriert uinput-Virtual-Devices)."""
+    """Find the physical 3D mouse (ignore uinput virtual devices)."""
     for path in evdev.list_devices():
         try:
             dev = InputDevice(path)
-            # Ignoriere virtuelle uinput Mäuse
+            # Skip virtual uinput mice
             if "Virtual" in dev.name or "Orbiter" in dev.name:
                 continue
             for name in KNOWN_NAMES:
@@ -117,19 +117,19 @@ def find_spacemouse_device():
 
 def detect_device_model(device=None):
     """
-    Ermittelt das Modell des 3Dconnexion-Geräts anhand Name, USB-ID und Tastenanzahl.
-    Gibt die Modelldefinition aus DEVICE_MODELS zurück.
+    Detect the 3Dconnexion model from name, USB id, and button count.
+    Returns the entry from DEVICE_MODELS.
     """
     if device is None:
         device = find_spacemouse_device()
 
     if not device:
-        # Fallback auf Standard-SpaceExplorer wenn kein Gerät angeschlossen
+        # Default to SpaceExplorer when no device is connected
         return DEVICE_MODELS["explorer"]
 
     dev_name = device.name.lower()
 
-    # 1. Erkennung nach Namen
+    # 1. Match by device name
     if "explorer" in dev_name:
         return DEVICE_MODELS["explorer"]
     elif "enterprise" in dev_name:
@@ -137,13 +137,13 @@ def detect_device_model(device=None):
     elif "pro" in dev_name and "wireless" not in dev_name and "compact" not in dev_name:
         return DEVICE_MODELS["pro"]
     elif "compact" in dev_name or "navigator" in dev_name or "wireless" in dev_name:
-        # Navigator und Compact haben meist nur 2 Tasten
+        # Navigator and Compact usually have only 2 buttons
         caps = device.capabilities().get(evdev.ecodes.EV_KEY, [])
         if len(caps) <= 4:
             return DEVICE_MODELS["compact"]
         return DEVICE_MODELS["compact"]
 
-    # 2. Erkennung nach gemeldeten Tasten (Capabilities)
+    # 2. Match by reported buttons (capabilities)
     caps = device.capabilities().get(evdev.ecodes.EV_KEY, [])
     btn_count = len(caps)
     if btn_count <= 2:
@@ -154,7 +154,7 @@ def detect_device_model(device=None):
         return DEVICE_MODELS["enterprise"]
 
 def wait_for_device(poll_interval=2.0):
-    """Wartet, bis das Gerät eingesteckt wird."""
+    """Block until a device is plugged in."""
     while True:
         dev = find_spacemouse_device()
         if dev:

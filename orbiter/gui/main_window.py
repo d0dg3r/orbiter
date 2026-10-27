@@ -70,7 +70,7 @@ class MainWindow(QMainWindow):
             self.setWindowTitle(tr("app.title"))
             self.subtitle_lbl.setText(tr("app.subtitle"))
             self.model_combo.setToolTip(tr("model.tooltip"))
-            # Modell-Combo Labels neu, Data behalten
+            # Rebuild model combo labels; keep current data
             cur = self.model_combo.currentData()
             self.model_combo.blockSignals(True)
             self.model_combo.clear()
@@ -99,6 +99,7 @@ class MainWindow(QMainWindow):
             self.tabs.setTabText(3, tr("tab.monitor"))
 
             self.footer_status.setText(tr("app.footer_live"))
+            self.footer_copyright.setText(tr("app.copyright"))
             self.restart_btn.setText(tr("btn.restart_daemon"))
             self.hide_btn.setText(tr("btn.minimize_tray"))
 
@@ -134,7 +135,7 @@ class MainWindow(QMainWindow):
         header = QHBoxLayout()
         header.setSpacing(12)
 
-        # App Logo Icon + Title in einer Zeile
+        # App logo, icon, and title on one row
         brand_box = QHBoxLayout()
         brand_box.setSpacing(10)
         brand_box.setAlignment(Qt.AlignmentFlag.AlignVCenter)
@@ -154,7 +155,7 @@ class MainWindow(QMainWindow):
         title.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         brand_box.addWidget(title)
 
-        # Dezente Version / Subtitle-Badge direkt daneben
+        # Subtle version badge beside the title
         self.subtitle_lbl = QLabel(tr("app.subtitle"))
         self.subtitle_lbl.setStyleSheet(
             "font-family: 'Inter Tight', 'Inter', sans-serif; "
@@ -180,7 +181,7 @@ class MainWindow(QMainWindow):
         self.status_badge.setObjectName("deviceStatusLabel")
         cluster_layout.addWidget(self.status_badge)
 
-        # Modell-Auswahl / Override Dropdown
+        # Model selection / override dropdown
         self.model_combo = QComboBox()
         self.model_combo.setToolTip(tr("model.tooltip"))
         make_combo_opaque(self.model_combo)
@@ -204,7 +205,7 @@ class MainWindow(QMainWindow):
                 color: #ffffff;
             }
         """)
-        # Initialwert setzen
+        # Set initial value
         cur_ov = self.config_mgr.get_model_override()
         for idx in range(self.model_combo.count()):
             if self.model_combo.itemData(idx) == cur_ov:
@@ -299,6 +300,18 @@ class MainWindow(QMainWindow):
         self.footer_status = QLabel(tr("app.footer_live"))
         self.footer_status.setStyleSheet("color: #64748b; font-size: 11px;")
         footer.addWidget(self.footer_status)
+
+        self.footer_copyright = QLabel(tr("app.copyright"))
+        self.footer_copyright.setTextFormat(Qt.TextFormat.RichText)
+        self.footer_copyright.setOpenExternalLinks(True)
+        self.footer_copyright.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextBrowserInteraction
+        )
+        self.footer_copyright.setStyleSheet(
+            "color: #64748b; font-size: 11px; margin-left: 12px;"
+            " a { color: #38bdf8; text-decoration: none; }"
+        )
+        footer.addWidget(self.footer_copyright)
 
         footer.addStretch()
 
@@ -431,7 +444,7 @@ class MainWindow(QMainWindow):
             self.switch_to_profile(new_active)
 
     def init_tray(self):
-        """Erstellt das Tray-Icon in der Systemleiste."""
+        """Create the system tray icon."""
         self.tray = QSystemTrayIcon(self)
         self.tray.setIcon(self.app_icon)
         self.tray.setToolTip(tr("app.tray_tooltip_default"))
@@ -521,7 +534,7 @@ class MainWindow(QMainWindow):
         self.activateWindow()
 
     def closeEvent(self, event):
-        """Beim Schließen des Fensters bleibt das Tray-Icon aktiv."""
+        """Keep the tray icon alive when the window is closed."""
         event.ignore()
         self.hide()
 
@@ -634,7 +647,7 @@ class MainWindow(QMainWindow):
                 self.tray_2d_action.setText(tr("mode.tray_2d_inactive"))
                 self.tray_2d_action.setIcon(get_icon("target", color="#64748b", size=16))
 
-            # Externer Profilwechsel über Hardware-Taste erkennen
+            # Detect profile switch triggered by a hardware button
             daemon_active_prof = status.get("active_profile")
             if daemon_active_prof and daemon_active_prof != self.config_mgr.get_active_profile_name():
                 self.config_mgr.load()

@@ -1,3 +1,3 @@
-"""Orbiter — native Linux-Treiber und GUI für 3Dconnexion SpaceMouse-Geräte."""
+"""Orbiter — native Linux driver and GUI for 3Dconnexion SpaceMouse devices."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

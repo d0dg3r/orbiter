@@ -54,6 +54,7 @@ Danach (einmalig pro User):
 sudo usermod -aG input "$USER"   # danach neu anmelden
 systemctl --user daemon-reload
 systemctl --user enable --now orbiter
+systemctl --user enable --now orbiter-tray
 orbiter status
 ```
 
@@ -76,7 +77,8 @@ Empfohlen (X11-Auto-Profile): `xdotool`, `xprop` / `xorg-xprop`.
 |---|---|
 | `/usr/bin/orbiter` | CLI/GUI-Entrypoint |
 | `/usr/lib/orbiter/` | Python-Package |
-| `/usr/lib/systemd/user/orbiter.service` | User-Dienst |
+| `/usr/lib/systemd/user/orbiter.service` | User-Daemon |
+| `/usr/lib/systemd/user/orbiter-tray.service` | Tray-GUI beim Login |
 | `/usr/share/applications/orbiter.desktop` | Desktop-Eintrag |
 | `/usr/share/icons/hicolor/scalable/apps/orbiter.svg` | Icon |
 | `/usr/lib/udev/rules.d/99-orbiter-uinput.rules` | uinput-Rechte (Gruppe `input`) |

@@ -1,9 +1,8 @@
 """
-Erkennung von Konflikten mit fremden SpaceMouse-Diensten (v. a. spacenavd).
+Detect conflicts with other SpaceMouse services (especially spacenavd).
 
-spacenavd öffnet dasselbe HID-Gerät exklusiv bzw. konkurrierend — Orbiter
-kann dann keine zuverlässigen Events lesen. Vor dem Daemon-Start muss
-spacenavd deaktiviert sein.
+spacenavd opens the same HID device exclusively or in competition — Orbiter
+then cannot read events reliably. spacenavd must be disabled before the daemon starts.
 """
 from __future__ import annotations
 
@@ -32,7 +31,7 @@ def _systemctl_is_active(unit: str, user: bool = False) -> bool:
 
 
 def _process_running(name: str) -> bool:
-    """Prüft über /proc, ob ein Prozess mit exaktem Comm läuft."""
+    """Return True if a process with the exact comm name is running (/proc)."""
     try:
         for entry in os.listdir("/proc"):
             if not entry.isdigit():
@@ -50,7 +49,7 @@ def _process_running(name: str) -> bool:
 
 
 def spacenavd_running() -> bool:
-    """True, wenn spacenavd als systemd-Unit oder Prozess aktiv ist."""
+    """True when spacenavd is active as a systemd unit or process."""
     if _systemctl_is_active("spacenavd", user=False):
         return True
     if _systemctl_is_active("spacenavd.service", user=False):
@@ -63,7 +62,7 @@ def spacenavd_running() -> bool:
 
 
 def check_spacenavd_conflict() -> Optional[str]:
-    """Gibt eine Fehlermeldung zurück, wenn spacenavd läuft, sonst None."""
+    """Return an error message if spacenavd is running, else None."""
     if spacenavd_running():
         return tr("conflict.spacenavd")
     return None

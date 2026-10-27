@@ -7,11 +7,11 @@ import subprocess
 import evdev
 from evdev import ecodes as e
 
-# Umfassende Liste aller uinput-Fähigkeiten
+# Full list of uinput key capabilities
 ALL_UINPUT_KEYS = [
-    # Maustasten
+    # Mouse buttons
     e.BTN_LEFT, e.BTN_RIGHT, e.BTN_MIDDLE, e.BTN_SIDE, e.BTN_EXTRA,
-    # Standard-Tasten
+    # Standard keys
     e.KEY_ESC, e.KEY_F1, e.KEY_F2, e.KEY_F3, e.KEY_F4, e.KEY_F5, e.KEY_F6,
     e.KEY_F7, e.KEY_F8, e.KEY_F9, e.KEY_F10, e.KEY_F11, e.KEY_F12,
     e.KEY_1, e.KEY_2, e.KEY_3, e.KEY_4, e.KEY_5, e.KEY_6, e.KEY_7, e.KEY_8, e.KEY_9, e.KEY_0,
@@ -31,7 +31,7 @@ ALL_UINPUT_KEYS = [
 ]
 
 def resolve_ecode(name_or_code):
-    """Löst 'BTN_LEFT' oder 'KEY_D' in den numerischen evdev-Code auf."""
+    """Resolve 'BTN_LEFT' or 'KEY_D' to the numeric evdev code."""
     if isinstance(name_or_code, int):
         return name_or_code
     if hasattr(e, name_or_code):
@@ -40,11 +40,11 @@ def resolve_ecode(name_or_code):
 
 def execute_action(action_def, is_press, vmouse, state_callbacks):
     """
-    Führt die konfigurierte Aktion aus.
-    action_def: dict aus config.json (z.B. {"type": "combo", "action": [...]})
-    is_press: bool (True = gedrückt, False = losgelassen)
-    vmouse: UInput Instanz
-    state_callbacks: dict mit Callback-Funktionen (z.B. speed_up, toggle_2d)
+    Run the configured action.
+    action_def: dict from config.json (e.g. {"type": "combo", "action": [...]})
+    is_press: bool (True = pressed, False = released)
+    vmouse: UInput instance
+    state_callbacks: dict of callbacks (e.g. speed_up, toggle_2d)
     """
     atype = action_def.get("type", "none")
     action = action_def.get("action")
@@ -63,13 +63,13 @@ def execute_action(action_def, is_press, vmouse, state_callbacks):
 
     elif atype == "combo":
         if is_press and isinstance(action, list):
-            # Tasten nacheinander drücken
+            # Press keys in sequence
             codes = [resolve_ecode(k) for k in action if resolve_ecode(k) is not None]
             for c in codes:
                 vmouse.write(e.EV_KEY, c, 1)
             vmouse.syn()
             time.sleep(0.02)
-            # In umgekehrter Reihenfolge loslassen
+            # Release in reverse order
             for c in reversed(codes):
                 vmouse.write(e.EV_KEY, c, 0)
             vmouse.syn()

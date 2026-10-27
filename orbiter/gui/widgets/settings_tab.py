@@ -1,12 +1,17 @@
 """
 Settings & Sensitivity Sliders Widget for Orbiter
 """
+from datetime import datetime
+from pathlib import Path
+
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QSlider, QCheckBox, QComboBox
+    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QSlider, QCheckBox,
+    QComboBox, QPushButton, QFileDialog, QMessageBox
 )
 from PyQt6.QtCore import Qt
 
 from orbiter.gui.style import make_combo_opaque
+from orbiter.gui.icons import get_icon
 from orbiter.i18n import (
     tr, set_language, resolve_lang, available_languages, language_native_name
 )
@@ -16,6 +21,7 @@ class SettingsTabWidget(QWidget):
     def __init__(self, config_mgr, parent=None):
         super().__init__(parent)
         self.config_mgr = config_mgr
+        self.main_win = parent
         self._loading = False
         self.init_ui()
 
@@ -86,6 +92,21 @@ class SettingsTabWidget(QWidget):
 
         layout.addWidget(self.scroll_group)
 
+        self.backup_group = QGroupBox()
+        b_layout = QHBoxLayout(self.backup_group)
+        self.export_btn = QPushButton()
+        self.export_btn.setObjectName("secondaryBtn")
+        self.export_btn.setIcon(get_icon("copy", color="#38bdf8", size=14))
+        self.export_btn.clicked.connect(self.on_export_config)
+        self.import_btn = QPushButton()
+        self.import_btn.setObjectName("secondaryBtn")
+        self.import_btn.setIcon(get_icon("edit", color="#94a3b8", size=14))
+        self.import_btn.clicked.connect(self.on_import_config)
+        b_layout.addWidget(self.export_btn)
+        b_layout.addWidget(self.import_btn)
+        b_layout.addStretch()
+        layout.addWidget(self.backup_group)
+
         self.speed_slider.valueChanged.connect(self.on_speed_changed)
         self.dz_slider.valueChanged.connect(self.on_dz_changed)
         self.sc_speed_slider.valueChanged.connect(self.on_sc_speed_changed)
@@ -114,7 +135,6 @@ class SettingsTabWidget(QWidget):
     def retranslate_ui(self):
         self.lang_group.setTitle(tr("settings.language"))
         self.lang_hint.setText(tr("settings.language_hint"))
-        # Auto-Item-Text aktualisieren, Codes behalten
         self._rebuild_lang_combo()
         self.pointer_group.setTitle(tr("settings.pointer_group"))
         self.speed_caption.setText(tr("settings.pointer_speed"))
@@ -123,6 +143,47 @@ class SettingsTabWidget(QWidget):
         self.scroll_group.setTitle(tr("settings.scroll_group"))
         self.sc_speed_caption.setText(tr("settings.scroll_speed"))
         self.sc_dz_caption.setText(tr("settings.scroll_threshold"))
+        self.backup_group.setTitle(tr("settings.backup_group"))
+        self.export_btn.setText(tr("settings.export"))
+        self.import_btn.setText(tr("settings.import"))
+
+    def on_export_config(self):
+        stamp = datetime.now().strftime("%Y%m%d")
+        default = str(Path.home() / f"orbiter-config-{stamp}.json")
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            tr("settings.export_title"),
+            default,
+            tr("settings.filter_json"),
+        )
+        if not path:
+            return
+        try:
+            out = self.config_mgr.export_config(path)
+            QMessageBox.information(self, "Orbiter", tr("settings.export_ok", path=out))
+        except Exception as e:
+            QMessageBox.warning(self, "Orbiter", tr("settings.export_fail", error=e))
+
+    def on_import_config(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            tr("settings.import_title"),
+            str(Path.home()),
+            tr("settings.filter_json"),
+        )
+        if not path:
+            return
+        try:
+            self.config_mgr.import_config(path)
+        except Exception as e:
+            QMessageBox.warning(self, "Orbiter", tr("settings.import_fail", error=e))
+            return
+        if self.main_win and hasattr(self.main_win, "send_ipc_command"):
+            self.main_win.send_ipc_command("RELOAD")
+            self.main_win.populate_profile_combo()
+            self.main_win.refresh_all_tabs()
+            self.main_win.update_tray_profiles()
+        QMessageBox.information(self, "Orbiter", tr("settings.import_ok", path=path))
 
     def on_language_changed(self, idx):
         if self._loading or idx < 0:
@@ -131,7 +192,6 @@ class SettingsTabWidget(QWidget):
         self.config_mgr.set("ui_language", code)
         self.config_mgr.save()
         set_language(resolve_lang(code))
-        # Listener auf MainWindow ruft retranslate_ui auf allen Tabs
 
     def load_settings(self):
         self._loading = True
