@@ -9,7 +9,6 @@ import json
 import subprocess
 from pathlib import Path
 
-# Add project root to sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -71,8 +70,8 @@ def print_help():
     print("""Orbiter — 3Dconnexion Controller & Linux Driver
 
 Verwendung:
-  orbiter            Startet die grafische Benutzeroberfläche (GUI)
-  orbiter gui        Startet die GUI
+  orbiter            Startet die grafische Benutzeroberfläche (GUI) mit Tray-Icon
+  orbiter --tray     Startet direkt minimiert in die Symbolleiste (Tray)
   orbiter daemon     Startet den Hintergrund-Treiber im Terminal
   orbiter status     Zeigt den Status des laufenden Dienstes an
   orbiter 2d         Schaltet den 2D-Modus um
@@ -87,7 +86,7 @@ def main():
         return
 
     sub = sys.argv[1].lower()
-    if sub in ("gui", "ui", "settings"):
+    if sub in ("gui", "ui", "settings", "--tray", "--minimized"):
         cmd_gui()
     elif sub in ("daemon", "server"):
         cmd_daemon()
