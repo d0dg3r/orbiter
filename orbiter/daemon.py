@@ -29,8 +29,9 @@ class OrbiterDaemon:
         # State
         self.axes = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
         self.axes_lock = threading.Lock()
-        self.mode_2d = self.config.get("mode_2d", True)
-        self.base_speed = self.config.get("base_speed", 0.05)
+        self.active_profile = self.config_mgr.get_active_profile_name()
+        self.mode_2d = self.config_mgr.get("mode_2d", True)
+        self.base_speed = self.config_mgr.get("base_speed", 0.05)
 
         # IPC Clients (GUI live monitor)
         self.ipc_clients = []
@@ -38,25 +39,66 @@ class OrbiterDaemon:
 
     def reload_config(self):
         self.config = self.config_mgr.load()
-        self.mode_2d = self.config.get("mode_2d", self.mode_2d)
-        self.base_speed = self.config.get("base_speed", self.base_speed)
-        print("[Daemon] Konfiguration live neu geladen.")
+        self.active_profile = self.config_mgr.get_active_profile_name()
+        self.mode_2d = self.config_mgr.get("mode_2d", self.mode_2d)
+        self.base_speed = self.config_mgr.get("base_speed", self.base_speed)
+        print(f"[Daemon] Konfiguration live neu geladen. Aktives Profil: {self.active_profile}")
+
+    def notify_profile_change(self, profile_name):
+        try:
+            icon_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "icons", "orbiter.svg")
+            import subprocess
+            subprocess.Popen([
+                "notify-send",
+                "-a", "Orbiter",
+                "-i", icon_file,
+                "-t", "1800",
+                "Orbiter Profil gewechselt",
+                f"Aktiv: {profile_name}"
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+        self.broadcast_event({
+            "type": "profile_changed",
+            "profile": profile_name
+        })
+
+    def switch_profile(self, name):
+        new_prof = self.config_mgr.set_active_profile(name)
+        self.reload_config()
+        self.notify_profile_change(new_prof)
+        print(f"[Daemon] Profil gewechselt zu: {new_prof}")
+        return new_prof
+
+    def next_profile(self):
+        new_prof = self.config_mgr.next_profile()
+        self.reload_config()
+        self.notify_profile_change(new_prof)
+        print(f"[Daemon] Nächstes Profil: {new_prof}")
+        return new_prof
+
+    def prev_profile(self):
+        new_prof = self.config_mgr.prev_profile()
+        self.reload_config()
+        self.notify_profile_change(new_prof)
+        print(f"[Daemon] Vorheriges Profil: {new_prof}")
+        return new_prof
 
     def speed_up(self):
         self.base_speed = min(self.base_speed * 1.25, 0.20)
-        self.config["base_speed"] = self.base_speed
+        self.config_mgr.set("base_speed", self.base_speed)
         self.config_mgr.save()
         print(f"[Daemon] Geschwindigkeit erhöht: {self.base_speed:.4f}")
 
     def speed_down(self):
         self.base_speed = max(self.base_speed * 0.80, 0.01)
-        self.config["base_speed"] = self.base_speed
+        self.config_mgr.set("base_speed", self.base_speed)
         self.config_mgr.save()
         print(f"[Daemon] Geschwindigkeit verringert: {self.base_speed:.4f}")
 
     def toggle_2d(self):
         self.mode_2d = not self.mode_2d
-        self.config["mode_2d"] = self.mode_2d
+        self.config_mgr.set("mode_2d", self.mode_2d)
         self.config_mgr.save()
         print(f"[Daemon] 2D-Modus: {'AKTIV' if self.mode_2d else 'HYBRID'}")
 
@@ -103,7 +145,9 @@ class OrbiterDaemon:
                                     "device_name": self.device.name if self.device else "None",
                                     "mode_2d": self.mode_2d,
                                     "base_speed": self.base_speed,
-                                    "deadzone": self.config.get("deadzone", 18)
+                                    "deadzone": self.config_mgr.get("deadzone", 18),
+                                    "active_profile": self.config_mgr.get_active_profile_name(),
+                                    "profiles": list(self.config_mgr.get_profiles().keys())
                                 }
                                 s.sendall((json.dumps(status) + "\n").encode("utf-8"))
                             elif msg == "RELOAD":
@@ -111,6 +155,17 @@ class OrbiterDaemon:
                                 s.sendall(b"OK\n")
                             elif msg == "TOGGLE_2D":
                                 self.toggle_2d()
+                                s.sendall(b"OK\n")
+                            elif msg.startswith("SWITCH_PROFILE"):
+                                parts = msg.split(maxsplit=1)
+                                target = parts[1] if len(parts) > 1 else "Standard"
+                                self.switch_profile(target)
+                                s.sendall(b"OK\n")
+                            elif msg == "NEXT_PROFILE":
+                                self.next_profile()
+                                s.sendall(b"OK\n")
+                            elif msg == "PREV_PROFILE":
+                                self.prev_profile()
                                 s.sendall(b"OK\n")
                         except Exception:
                             with self.ipc_lock:
@@ -154,10 +209,10 @@ class OrbiterDaemon:
                 self.reload_config()
 
             now = time.time()
-            deadzone = self.config.get("deadzone", 18)
-            scroll_deadzone = self.config.get("scroll_deadzone_twist", 90)
-            scroll_speed = self.config.get("scroll_speed", 0.003)
-            move_cooldown = self.config.get("move_cooldown", 0.15)
+            deadzone = self.config_mgr.get("deadzone", 18)
+            scroll_deadzone = self.config_mgr.get("scroll_deadzone_twist", 90)
+            scroll_speed = self.config_mgr.get("scroll_speed", 0.003)
+            move_cooldown = self.config_mgr.get("move_cooldown", 0.15)
 
             with self.axes_lock:
                 if self.mode_2d:
@@ -210,7 +265,10 @@ class OrbiterDaemon:
         state_callbacks = {
             "speed_up": self.speed_up,
             "speed_down": self.speed_down,
-            "toggle_2d": self.toggle_2d
+            "toggle_2d": self.toggle_2d,
+            "next_profile": self.next_profile,
+            "prev_profile": self.prev_profile,
+            "switch_profile": self.switch_profile
         }
 
         print("[Daemon] Orbiter Daemon gestartet. Warte auf 3Dconnexion-Hardware...")
@@ -236,7 +294,7 @@ class OrbiterDaemon:
 
                     elif event.type == e.EV_KEY:
                         btn_code_str = str(event.code)
-                        buttons_cfg = self.config.get("buttons", {})
+                        buttons_cfg = self.config_mgr.get("buttons", {})
                         btn_def = buttons_cfg.get(btn_code_str)
 
                         self.broadcast_event({

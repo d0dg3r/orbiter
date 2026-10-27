@@ -90,5 +90,14 @@ def execute_action(action_def, is_press, vmouse, state_callbacks):
                 print(f"[Orbiter] Shell Befehl Fehler: {err}")
 
     elif atype == "builtin":
-        if is_press and action in state_callbacks:
-            state_callbacks[action]()
+        if is_press and action:
+            if action in state_callbacks:
+                state_callbacks[action]()
+            elif action.startswith("profile:"):
+                target = action[len("profile:"):].strip()
+                if "switch_profile" in state_callbacks:
+                    state_callbacks["switch_profile"](target)
+            elif action.startswith("switch_profile:"):
+                target = action[len("switch_profile:"):].strip()
+                if "switch_profile" in state_callbacks:
+                    state_callbacks["switch_profile"](target)

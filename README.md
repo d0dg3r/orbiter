@@ -16,9 +16,13 @@ Orbiter turns 3Dconnexion 6DoF devices (SpaceExplorer, SpaceNavigator, SpaceMous
   - 100% scroll lockout while moving the pointer.
   - 150 ms cooldown prevents accidental scrolling when releasing the cap.
   - Twist-based scrolling (turn the cap like a knob for buttery smooth page scrolling).
+- **Profile Management:**
+  - Create, duplicate, rename, and delete profiles (e.g., `Standard`, `CAD / 3D`, `Browser / Medien`).
+  - Switch profiles via GUI toolbar, system tray menu, or dedicated hardware buttons (`next_profile`, `prev_profile`, `profile:<name>`).
+  - Native desktop notifications (`notify-send`) when switching profiles.
 - **Modern Dark GUI (PyQt6):**
-  - **Button Remapping:** Map any physical button to Mouse Clicks, Keyboard Combos (`Super+D`, `Super+U`, `Ctrl+C`), Hyprland Dispatchers (`workspace e-1`, `workspace e+1`), or Shell scripts.
-  - **Sensitivity Sliders:** Live adjustment of pointer speed, deadzones, and scroll speed.
+  - **Dropdown Button Editor:** Intuitive dropdown selectors for mouse buttons, internal functions & profiles, individual keys, shortcuts with modifier checkboxes, and Hyprland presets.
+  - **Sensitivity Sliders:** Live adjustment of pointer speed, deadzones, and scroll speed per profile.
   - **Live Hardware Monitor:** Real-time 6-axis visualizer and button press tester.
 - **Live Config Reload:** Changes in the GUI or `~/.config/orbiter/config.json` take effect immediately without restarting the daemon.
 - **Hyprland & Wayland Native:** Full integration with Hyprland workspaces and Wayland compositors via kernel `uinput`.
@@ -51,11 +55,13 @@ orbiter
 
 ### CLI Commands
 ```bash
-orbiter status     # Check connection and active mode
-orbiter 2d         # Toggle 2D precision mode
-orbiter reload     # Reload config from disk
-orbiter restart    # Restart systemd background service
-orbiter daemon     # Run daemon interactively in foreground
+orbiter status                       # Check connection, active profile, and mode
+orbiter profile                      # List all available profiles and active profile
+orbiter profile <name|next|prev>     # Switch to profile (e.g. 'CAD / 3D', 'next', 'prev')
+orbiter 2d                           # Toggle 2D precision mode
+orbiter reload                       # Reload config from disk
+orbiter restart                      # Restart systemd background service
+orbiter daemon                       # Run daemon interactively in foreground
 ```
 
 ---

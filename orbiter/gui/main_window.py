@@ -9,7 +9,8 @@ from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel,
-    QPushButton, QMessageBox, QSystemTrayIcon, QMenu, QApplication
+    QPushButton, QMessageBox, QSystemTrayIcon, QMenu, QApplication,
+    QComboBox, QInputDialog
 )
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtGui import QIcon, QAction
@@ -28,7 +29,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.config_mgr = ConfigManager()
         self.setWindowTitle("Orbiter — 3Dconnexion Controller")
-        self.resize(780, 580)
+        self.resize(800, 620)
         self.setStyleSheet(DARK_THEME)
 
         self.app_icon = QIcon(str(ICON_PATH))
@@ -36,6 +37,7 @@ class MainWindow(QMainWindow):
 
         self.is_2d = True
         self.connected_device = None
+        self._updating_profiles = False
 
         self.init_ui()
         self.init_tray()
@@ -53,6 +55,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         main_layout = QVBoxLayout(central)
         main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(12)
 
         # Header
         header = QHBoxLayout()
@@ -79,6 +82,41 @@ class MainWindow(QMainWindow):
         header.addWidget(self.status_badge)
 
         main_layout.addLayout(header)
+
+        # Profile Toolbar
+        prof_bar = QHBoxLayout()
+        prof_lbl = QLabel("📁 Profil:")
+        prof_lbl.setStyleSheet("font-weight: 700; color: #93c5fd; font-size: 13px;")
+        prof_bar.addWidget(prof_lbl)
+
+        self.profile_combo = QComboBox()
+        self.profile_combo.setMinimumWidth(180)
+        self.populate_profile_combo()
+        self.profile_combo.currentTextChanged.connect(self.on_profile_combo_changed)
+        prof_bar.addWidget(self.profile_combo)
+
+        self.new_prof_btn = QPushButton("+ Neu")
+        self.new_prof_btn.setObjectName("secondaryBtn")
+        self.new_prof_btn.clicked.connect(self.create_new_profile)
+        prof_bar.addWidget(self.new_prof_btn)
+
+        self.copy_prof_btn = QPushButton("📋 Duplizieren")
+        self.copy_prof_btn.setObjectName("secondaryBtn")
+        self.copy_prof_btn.clicked.connect(self.copy_current_profile)
+        prof_bar.addWidget(self.copy_prof_btn)
+
+        self.rename_prof_btn = QPushButton("✏️ Umbenennen")
+        self.rename_prof_btn.setObjectName("secondaryBtn")
+        self.rename_prof_btn.clicked.connect(self.rename_current_profile)
+        prof_bar.addWidget(self.rename_prof_btn)
+
+        self.del_prof_btn = QPushButton("🗑️ Löschen")
+        self.del_prof_btn.setObjectName("secondaryBtn")
+        self.del_prof_btn.clicked.connect(self.delete_current_profile)
+        prof_bar.addWidget(self.del_prof_btn)
+
+        prof_bar.addStretch()
+        main_layout.addLayout(prof_bar)
 
         # Tabs
         self.tabs = QTabWidget()
@@ -111,6 +149,88 @@ class MainWindow(QMainWindow):
 
         main_layout.addLayout(footer)
 
+    def populate_profile_combo(self):
+        self._updating_profiles = True
+        self.profile_combo.clear()
+        profiles = sorted(self.config_mgr.get_profiles().keys())
+        active = self.config_mgr.get_active_profile_name()
+        for p in profiles:
+            self.profile_combo.addItem(p)
+        idx = self.profile_combo.findText(active)
+        if idx >= 0:
+            self.profile_combo.setCurrentIndex(idx)
+        self._updating_profiles = False
+
+    def on_profile_combo_changed(self, text):
+        if self._updating_profiles or not text:
+            return
+        if text != self.config_mgr.get_active_profile_name():
+            self.switch_to_profile(text)
+
+    def switch_to_profile(self, name):
+        self.config_mgr.set_active_profile(name)
+        # IPC an Daemon
+        self.send_ipc_command(f"SWITCH_PROFILE {name}")
+        self.refresh_all_tabs()
+        self.update_tray_profiles()
+
+    def refresh_all_tabs(self):
+        self.btn_tab.populate_table()
+        self.settings_tab.load_settings()
+
+    def create_new_profile(self):
+        name, ok = QInputDialog.getText(self, "Neues Profil erstellen", "Name des neuen Profils:")
+        if ok and name.strip():
+            clean_name = name.strip()
+            res = self.config_mgr.create_profile(clean_name)
+            if res:
+                self.populate_profile_combo()
+                self.switch_to_profile(clean_name)
+            else:
+                QMessageBox.warning(self, "Fehler", f"Ein Profil mit dem Namen '{clean_name}' existiert bereits.")
+
+    def copy_current_profile(self):
+        cur = self.config_mgr.get_active_profile_name()
+        name, ok = QInputDialog.getText(self, "Profil duplizieren", f"Name für Kopie von '{cur}':", text=f"{cur} (Kopie)")
+        if ok and name.strip():
+            clean_name = name.strip()
+            res = self.config_mgr.create_profile(clean_name, copy_from=cur)
+            if res:
+                self.populate_profile_combo()
+                self.switch_to_profile(clean_name)
+            else:
+                QMessageBox.warning(self, "Fehler", f"Ein Profil mit dem Namen '{clean_name}' existiert bereits.")
+
+    def rename_current_profile(self):
+        cur = self.config_mgr.get_active_profile_name()
+        name, ok = QInputDialog.getText(self, "Profil umbenennen", f"Neuer Name für '{cur}':", text=cur)
+        if ok and name.strip() and name.strip() != cur:
+            clean_name = name.strip()
+            res = self.config_mgr.rename_profile(cur, clean_name)
+            if res:
+                self.populate_profile_combo()
+                self.switch_to_profile(clean_name)
+            else:
+                QMessageBox.warning(self, "Fehler", "Ungültiger Name oder Profil existiert bereits.")
+
+    def delete_current_profile(self):
+        profs = self.config_mgr.get_profiles()
+        if len(profs) <= 1:
+            QMessageBox.warning(self, "Löschen nicht möglich", "Das letzte verbleibende Profil kann nicht gelöscht werden.")
+            return
+
+        cur = self.config_mgr.get_active_profile_name()
+        ans = QMessageBox.question(
+            self, "Profil löschen",
+            f"Möchtest du das Profil '{cur}' wirklich löschen?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if ans == QMessageBox.StandardButton.Yes:
+            self.config_mgr.delete_profile(cur)
+            new_active = self.config_mgr.get_active_profile_name()
+            self.populate_profile_combo()
+            self.switch_to_profile(new_active)
+
     def init_tray(self):
         """Erstellt das Tray-Icon in der Systemleiste."""
         self.tray = QSystemTrayIcon(self)
@@ -118,35 +238,75 @@ class MainWindow(QMainWindow):
         self.tray.setToolTip("Orbiter — 3Dconnexion Controller")
 
         # Kontextmenü für Tray
-        menu = QMenu()
-        menu.setStyleSheet(DARK_THEME)
+        self.tray_menu = QMenu()
+        self.tray_menu.setStyleSheet(DARK_THEME)
 
         self.tray_status_action = QAction("● Orbiter", self)
         self.tray_status_action.setEnabled(False)
-        menu.addAction(self.tray_status_action)
-        menu.addSeparator()
+        self.tray_menu.addAction(self.tray_status_action)
+        self.tray_menu.addSeparator()
+
+        # Profil-Untermenü
+        self.tray_profile_menu = QMenu("📁 Profil wechseln", self.tray_menu)
+        self.tray_profile_menu.setStyleSheet(DARK_THEME)
+        self.tray_menu.addMenu(self.tray_profile_menu)
+        self.update_tray_profiles()
 
         self.tray_2d_action = QAction("2D-Präzisionsmodus umschalten", self)
         self.tray_2d_action.triggered.connect(self.toggle_2d_mode)
-        menu.addAction(self.tray_2d_action)
+        self.tray_menu.addAction(self.tray_2d_action)
 
         open_action = QAction("⚙️ Einstellungen öffnen", self)
         open_action.triggered.connect(self.show_and_activate)
-        menu.addAction(open_action)
+        self.tray_menu.addAction(open_action)
 
         restart_action = QAction("🔄 Dienst neustarten", self)
         restart_action.triggered.connect(self.restart_daemon)
-        menu.addAction(restart_action)
+        self.tray_menu.addAction(restart_action)
 
-        menu.addSeparator()
+        self.tray_menu.addSeparator()
 
         quit_action = QAction("❌ Beenden", self)
         quit_action.triggered.connect(QApplication.instance().quit)
-        menu.addAction(quit_action)
+        self.tray_menu.addAction(quit_action)
 
-        self.tray.setContextMenu(menu)
+        self.tray.setContextMenu(self.tray_menu)
         self.tray.activated.connect(self.on_tray_activated)
         self.tray.show()
+
+    def update_tray_profiles(self):
+        self.tray_profile_menu.clear()
+        profiles = sorted(self.config_mgr.get_profiles().keys())
+        active = self.config_mgr.get_active_profile_name()
+
+        for p in profiles:
+            prefix = "✓ " if p == active else "   "
+            act = QAction(f"{prefix}{p}", self)
+            act.triggered.connect(lambda checked, name=p: self.switch_to_profile(name))
+            self.tray_profile_menu.addAction(act)
+
+        self.tray_profile_menu.addSeparator()
+        next_act = QAction("➡️ Nächstes Profil", self)
+        next_act.triggered.connect(self.on_tray_next_profile)
+        self.tray_profile_menu.addAction(next_act)
+
+        prev_act = QAction("⬅️ Vorheriges Profil", self)
+        prev_act.triggered.connect(self.on_tray_prev_profile)
+        self.tray_profile_menu.addAction(prev_act)
+
+    def on_tray_next_profile(self):
+        new_prof = self.config_mgr.next_profile()
+        self.send_ipc_command("NEXT_PROFILE")
+        self.populate_profile_combo()
+        self.refresh_all_tabs()
+        self.update_tray_profiles()
+
+    def on_tray_prev_profile(self):
+        new_prof = self.config_mgr.prev_profile()
+        self.send_ipc_command("PREV_PROFILE")
+        self.populate_profile_combo()
+        self.refresh_all_tabs()
+        self.update_tray_profiles()
 
     def on_tray_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
@@ -165,6 +325,20 @@ class MainWindow(QMainWindow):
         event.ignore()
         self.hide()
 
+    def send_ipc_command(self, cmd):
+        if not IPC_SOCKET.exists():
+            return None
+        try:
+            client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            client.settimeout(0.5)
+            client.connect(str(IPC_SOCKET))
+            client.sendall((cmd + "\n").encode("utf-8"))
+            resp = client.recv(1024).decode("utf-8").strip()
+            client.close()
+            return resp
+        except Exception:
+            return None
+
     def update_daemon_status(self):
         if not IPC_SOCKET.exists():
             self.status_badge.setText("● Dienst offline")
@@ -173,12 +347,9 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            client.settimeout(0.5)
-            client.connect(str(IPC_SOCKET))
-            client.sendall(b"GET_STATUS\n")
-            resp = client.recv(1024).decode("utf-8").strip()
-            client.close()
+            resp = self.send_ipc_command("GET_STATUS")
+            if not resp:
+                raise Exception("Keine Antwort")
 
             status = json.loads(resp)
             if status.get("connected"):
@@ -200,7 +371,16 @@ class MainWindow(QMainWindow):
                 self.toggle_2d_btn.setStyleSheet("background-color: #272c3a; color: #94a3b8;")
                 self.tray_2d_action.setText("  2D-Präzisionsmodus (Inaktiv)")
 
-            self.tray.setToolTip(f"Orbiter — {self.connected_device or 'SpaceMouse'} (2D: {'AN' if self.is_2d else 'AUS'})")
+            # Externer Profilwechsel über Hardware-Taste erkennen
+            daemon_active_prof = status.get("active_profile")
+            if daemon_active_prof and daemon_active_prof != self.config_mgr.get_active_profile_name():
+                self.config_mgr.load()
+                self.populate_profile_combo()
+                self.refresh_all_tabs()
+                self.update_tray_profiles()
+
+            active_name = self.config_mgr.get_active_profile_name()
+            self.tray.setToolTip(f"Orbiter — {self.connected_device or 'SpaceMouse'} (Profil: {active_name})")
 
         except Exception:
             self.status_badge.setText("● Dienst antwortet nicht")
@@ -208,16 +388,8 @@ class MainWindow(QMainWindow):
             self.tray_status_action.setText("● Dienst antwortet nicht")
 
     def toggle_2d_mode(self):
-        if not IPC_SOCKET.exists():
-            return
-        try:
-            client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            client.connect(str(IPC_SOCKET))
-            client.sendall(b"TOGGLE_2D\n")
-            client.close()
-            self.update_daemon_status()
-        except Exception:
-            pass
+        self.send_ipc_command("TOGGLE_2D")
+        self.update_daemon_status()
 
     def restart_daemon(self):
         try:

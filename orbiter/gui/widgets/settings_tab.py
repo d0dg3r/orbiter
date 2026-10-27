@@ -2,7 +2,7 @@
 Settings & Sensitivity Sliders Widget for Orbiter
 """
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QSlider, QCheckBox, QPushButton
+    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QSlider, QCheckBox
 )
 from PyQt6.QtCore import Qt
 
@@ -10,6 +10,7 @@ class SettingsTabWidget(QWidget):
     def __init__(self, config_mgr, parent=None):
         super().__init__(parent)
         self.config_mgr = config_mgr
+        self._loading = False
         self.init_ui()
 
     def init_ui(self):
@@ -84,46 +85,60 @@ class SettingsTabWidget(QWidget):
         self.load_settings()
 
     def load_settings(self):
-        speed = self.config_mgr.get("base_speed", 0.05)
-        self.speed_slider.setValue(int(speed * 1000))
-        self.speed_label.setText(f"{speed:.3f}")
+        self._loading = True
+        try:
+            speed = self.config_mgr.get("base_speed", 0.05)
+            self.speed_slider.setValue(int(speed * 1000))
+            self.speed_label.setText(f"{speed:.3f}")
 
-        dz = self.config_mgr.get("deadzone", 18)
-        self.dz_slider.setValue(int(dz))
-        self.dz_label.setText(f"{dz}")
+            dz = self.config_mgr.get("deadzone", 18)
+            self.dz_slider.setValue(int(dz))
+            self.dz_label.setText(f"{dz}")
 
-        sc_speed = self.config_mgr.get("scroll_speed", 0.0035)
-        self.sc_speed_slider.setValue(int(sc_speed * 10000))
-        self.sc_speed_label.setText(f"{sc_speed:.4f}")
+            sc_speed = self.config_mgr.get("scroll_speed", 0.0035)
+            self.sc_speed_slider.setValue(int(sc_speed * 10000))
+            self.sc_speed_label.setText(f"{sc_speed:.4f}")
 
-        sc_dz = self.config_mgr.get("scroll_deadzone_twist", 90)
-        self.sc_dz_slider.setValue(int(sc_dz))
-        self.sc_dz_label.setText(f"{sc_dz}")
+            sc_dz = self.config_mgr.get("scroll_deadzone_twist", 90)
+            self.sc_dz_slider.setValue(int(sc_dz))
+            self.sc_dz_label.setText(f"{sc_dz}")
 
-        self.mode_2d_check.setChecked(self.config_mgr.get("mode_2d", True))
+            self.mode_2d_check.setChecked(self.config_mgr.get("mode_2d", True))
+        finally:
+            self._loading = False
 
     def on_speed_changed(self, val):
+        if self._loading:
+            return
         speed = val / 1000.0
         self.speed_label.setText(f"{speed:.3f}")
         self.config_mgr.set("base_speed", speed)
         self.config_mgr.save()
 
     def on_dz_changed(self, val):
+        if self._loading:
+            return
         self.dz_label.setText(f"{val}")
         self.config_mgr.set("deadzone", val)
         self.config_mgr.save()
 
     def on_sc_speed_changed(self, val):
+        if self._loading:
+            return
         sc_speed = val / 10000.0
-        self.sc_speed_label.setText(f"{sc_speed:.4f}")
+        self.speed_label.setText(f"{sc_speed:.4f}")
         self.config_mgr.set("scroll_speed", sc_speed)
         self.config_mgr.save()
 
     def on_sc_dz_changed(self, val):
+        if self._loading:
+            return
         self.sc_dz_label.setText(f"{val}")
         self.config_mgr.set("scroll_deadzone_twist", val)
         self.config_mgr.save()
 
     def on_mode_2d_toggled(self, checked):
+        if self._loading:
+            return
         self.config_mgr.set("mode_2d", checked)
         self.config_mgr.save()

@@ -46,11 +46,43 @@ def cmd_status():
             print("=== Orbiter Status ===")
             print(f"Gerät verbunden:   {'Ja' if st.get('connected') else 'Nein'}")
             print(f"Gerätename:        {st.get('device_name')}")
+            print(f"Aktives Profil:    {st.get('active_profile', 'Standard')}")
+            print(f"Profile:           {', '.join(st.get('profiles', []))}")
             print(f"2D-Präzisionsmodus:{'AKTIV' if st.get('mode_2d') else 'HYBRID'}")
             print(f"Geschwindigkeit:   {st.get('base_speed'):.4f}")
             print(f"Deadzone:          {st.get('deadzone')}")
         except Exception:
             print(resp)
+
+def cmd_profile():
+    if len(sys.argv) > 2:
+        arg = " ".join(sys.argv[2:]).strip()
+        if arg.lower() == "next":
+            resp = send_ipc("NEXT_PROFILE")
+            if resp == "OK":
+                print("Nächstes Profil aktiviert.")
+        elif arg.lower() == "prev":
+            resp = send_ipc("PREV_PROFILE")
+            if resp == "OK":
+                print("Vorheriges Profil aktiviert.")
+        else:
+            resp = send_ipc(f"SWITCH_PROFILE {arg}")
+            if resp == "OK":
+                print(f"Profil gewechselt zu: {arg}")
+    else:
+        resp = send_ipc("GET_STATUS")
+        if resp:
+            try:
+                st = json.loads(resp)
+                active = st.get("active_profile", "Standard")
+                profs = st.get("profiles", [])
+                print("=== Orbiter Profile ===")
+                for p in profs:
+                    prefix = "* " if p == active else "  "
+                    suffix = " (aktiv)" if p == active else ""
+                    print(f"{prefix}{p}{suffix}")
+            except Exception:
+                print(resp)
 
 def cmd_toggle_2d():
     resp = send_ipc("TOGGLE_2D")
@@ -74,6 +106,8 @@ Verwendung:
   orbiter --tray     Startet direkt minimiert in die Symbolleiste (Tray)
   orbiter daemon     Startet den Hintergrund-Treiber im Terminal
   orbiter status     Zeigt den Status des laufenden Dienstes an
+  orbiter profile    Zeigt alle Profile und das aktive Profil an
+  orbiter profile <name|next|prev>  Wechselt das aktive Profil
   orbiter 2d         Schaltet den 2D-Modus um
   orbiter reload     Lädt die Konfiguration neu
   orbiter restart    Startet den systemd-Dienst neu
@@ -92,6 +126,8 @@ def main():
         cmd_daemon()
     elif sub in ("status", "info"):
         cmd_status()
+    elif sub in ("profile", "profiles"):
+        cmd_profile()
     elif sub in ("2d", "toggle"):
         cmd_toggle_2d()
     elif sub in ("reload",):
