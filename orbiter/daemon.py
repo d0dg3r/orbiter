@@ -33,6 +33,8 @@ class OrbiterDaemon:
         # State
         self.axes = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
         self.axes_lock = threading.Lock()
+        # Last EV_REL timestamp — sticky axes are zeroed after AXIS_HOLD_SEC
+        self.last_axis_time = 0.0
         self.active_profile = self.config_mgr.get_active_profile_name()
         self.mode_2d = self.config_mgr.get("mode_2d", True)
         self.base_speed = self.config_mgr.get("base_speed", 0.05)
@@ -290,6 +292,9 @@ class OrbiterDaemon:
                 except Exception:
                     pass
 
+    # Drop sticky axis samples if hardware stops sending EV_REL (≈5 frames @ 60 Hz)
+    AXIS_HOLD_SEC = 0.080
+
     def curve(self, val, deadzone):
         if abs(val) <= deadzone:
             return 0
@@ -298,7 +303,10 @@ class OrbiterDaemon:
         return sign * (d + (d * d * 0.002))
 
     def ticker_loop(self):
-        """60 Hz ticker for smooth pointer motion and strict scroll gating."""
+        """60 Hz ticker for smooth pointer motion and strict scroll gating.
+
+        At rest (all axes inside deadzones) no uinput write/syn is emitted.
+        """
         scroll_acc = 0.0
         last_move_time = 0.0
 
@@ -308,24 +316,53 @@ class OrbiterDaemon:
                 self.reload_config()
 
             now = time.time()
-            deadzone = self.config_mgr.get("deadzone", 18)
-            scroll_deadzone = self.config_mgr.get("scroll_deadzone_twist", 90)
+            deadzone = self.config_mgr.get("deadzone", 22)
+            scroll_deadzone = self.config_mgr.get("scroll_deadzone_twist", 100)
             scroll_speed = self.config_mgr.get("scroll_speed", 0.003)
             move_cooldown = self.config_mgr.get("move_cooldown", 0.15)
             tilt_blend = float(self.config_mgr.get("tilt_blend", 0.4))
             lift_scroll = bool(self.config_mgr.get("lift_scroll_enabled", True))
-            lift_deadzone = self.config_mgr.get("scroll_deadzone_lift", 90)
+            lift_deadzone = self.config_mgr.get("scroll_deadzone_lift", 100)
 
             with self.axes_lock:
+                # Sticky-axis timeout: no EV_REL for AXIS_HOLD_SEC → force zero
+                if self.last_axis_time > 0 and (now - self.last_axis_time) > self.AXIS_HOLD_SEC:
+                    for code in self.axes:
+                        self.axes[code] = 0
+
+                ax0 = self.axes[0]
+                ax1 = self.axes[1]
+                ax2 = self.axes[2]
+                ax3 = self.axes[3]
+                ax4 = self.axes[4]
+                ax5 = self.axes[5]
+
                 if self.mode_2d:
-                    raw_x = self.axes[0]
-                    raw_y = self.axes[2]
+                    raw_x = ax0
+                    raw_y = ax2
+                    pointer_idle = abs(ax0) <= deadzone and abs(ax2) <= deadzone
                 else:
                     # Pitch (3) / Roll (4) blend into pointer when hybrid is on
-                    raw_x = self.axes[0] + int(self.axes[4] * tilt_blend)
-                    raw_y = self.axes[2] - int(self.axes[3] * tilt_blend)
-                raw_twist = self.axes[5]
-                raw_lift = self.axes[1]
+                    raw_x = ax0 + int(ax4 * tilt_blend)
+                    raw_y = ax2 - int(ax3 * tilt_blend)
+                    pointer_idle = (
+                        abs(ax0) <= deadzone
+                        and abs(ax2) <= deadzone
+                        and abs(ax3) <= deadzone
+                        and abs(ax4) <= deadzone
+                    )
+                raw_twist = ax5
+                raw_lift = ax1
+
+            scroll_idle = abs(raw_twist) <= scroll_deadzone and (
+                not lift_scroll or abs(raw_lift) <= lift_deadzone
+            )
+
+            # Idle-Gate: absolute rest → no uinput traffic this tick
+            if pointer_idle and scroll_idle:
+                scroll_acc = 0.0
+                time.sleep(1.0 / 60.0)
+                continue
 
             cur_x = self.curve(raw_x, deadzone)
             cur_y = self.curve(raw_y, deadzone)
@@ -405,6 +442,7 @@ class OrbiterDaemon:
                         with self.axes_lock:
                             if event.code in self.axes:
                                 self.axes[event.code] = event.value
+                            self.last_axis_time = time.time()
                         self.broadcast_event({
                             "type": "axis",
                             "code": event.code,

@@ -13,15 +13,15 @@ IPC_SOCKET = CONFIG_DIR / "orbiter.sock"
 
 # 1. Default profile for generic Linux desktops (GNOME, KDE, Wayland, X11)
 DEFAULT_PROFILE_SETTINGS = {
-    "deadzone": 18,
+    "deadzone": 22,
     "base_speed": 0.05,
-    "scroll_deadzone_twist": 90,
+    "scroll_deadzone_twist": 100,
     "scroll_speed": 0.003,
     "move_cooldown": 0.15,
     "mode_2d": True,
     "tilt_blend": 0.4,
     "lift_scroll_enabled": True,
-    "scroll_deadzone_lift": 90,
+    "scroll_deadzone_lift": 100,
     "buttons": {
         "259": {
             "name": "Linke Maustaste",
@@ -124,13 +124,13 @@ DEFAULT_PROFILES = {
     "CAD / 3D": {
         "deadzone": 16,
         "base_speed": 0.055,
-        "scroll_deadzone_twist": 80,
+        "scroll_deadzone_twist": 100,
         "scroll_speed": 0.0035,
         "move_cooldown": 0.12,
         "mode_2d": False,
         "tilt_blend": 0.4,
         "lift_scroll_enabled": True,
-        "scroll_deadzone_lift": 90,
+        "scroll_deadzone_lift": 100,
         "buttons": {
             "259": {
                 "name": "Linksklick",
@@ -195,15 +195,15 @@ DEFAULT_PROFILES = {
         }
     },
     "Browser / Medien": {
-        "deadzone": 20,
+        "deadzone": 22,
         "base_speed": 0.06,
-        "scroll_deadzone_twist": 85,
+        "scroll_deadzone_twist": 100,
         "scroll_speed": 0.004,
         "move_cooldown": 0.15,
         "mode_2d": True,
         "tilt_blend": 0.4,
         "lift_scroll_enabled": True,
-        "scroll_deadzone_lift": 90,
+        "scroll_deadzone_lift": 100,
         "buttons": {
             "259": {
                 "name": "Linksklick",
@@ -351,15 +351,15 @@ class ConfigManager:
             if "profiles" not in self.config or not isinstance(self.config["profiles"], dict):
                 migrated_buttons = self.config.get("buttons", DEFAULT_PROFILE_SETTINGS["buttons"])
                 standard_profile = {
-                    "deadzone": self.config.get("deadzone", 18),
+                    "deadzone": self.config.get("deadzone", 22),
                     "base_speed": self.config.get("base_speed", 0.05),
-                    "scroll_deadzone_twist": self.config.get("scroll_deadzone_twist", 90),
+                    "scroll_deadzone_twist": self.config.get("scroll_deadzone_twist", 100),
                     "scroll_speed": self.config.get("scroll_speed", 0.003),
                     "move_cooldown": self.config.get("move_cooldown", 0.15),
                     "mode_2d": self.config.get("mode_2d", True),
                     "tilt_blend": self.config.get("tilt_blend", 0.4),
                     "lift_scroll_enabled": self.config.get("lift_scroll_enabled", True),
-                    "scroll_deadzone_lift": self.config.get("scroll_deadzone_lift", 90),
+                    "scroll_deadzone_lift": self.config.get("scroll_deadzone_lift", 100),
                     "buttons": migrated_buttons
                 }
                 self.config["profiles"] = {

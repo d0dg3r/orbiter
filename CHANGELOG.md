@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Release notes on GitHub are taken from the matching version section below.
 Only the latest release is kept published; older GitHub releases are removed by `packaging/release.sh`.
 
+## [0.1.6] - 2026-10-31
+
+### Fixed
+
+- 60 Hz ticker emits **no uinput traffic at rest** (idle-gate when all axes are inside deadzones)
+- Sticky axis values cleared after 80 ms without `EV_REL` (no cursor drift after releasing the cap)
+
+### Changed
+
+- Default pointer deadzone `22`, scroll/lift thresholds `100` (new and migrated profile fields)
+
 ## [0.1.5] - 2026-10-27
 
 ### Security
